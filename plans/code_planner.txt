@@ -1,0 +1,248 @@
+Below is a **complete engineering specification** for the **Code‑Planner** agent—the bridge between a high‑level Plan and concrete, bite‑sized CodingTasks that the Coding‑Agent(s) can execute safely in parallel.
+
+---
+
+## 1  |  Mission & Scope
+
+| Item           | Description                                                                                                                                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purpose**    | Transform each *Step* in a `Plan` into one or more **CodingTask** messages enriched with all code context (RAG snippets, file paths, call‑graph dependencies, skeleton patches) that the downstream Coding‑Agent needs. |
+| **Guarantees** | • Validates every target path exists (or is creatable)<br>• Binds each task to an explicit Git base‑commit<br>• Emits an **acyclic dependency graph** of tasks so the Orchestrator can schedule them safely.            |
+| **Non‑Goals**  | Generating source code, running tests, linting, or committing patches.                                                                                                                                                  |
+
+---
+
+## 2  |  Runtime Model
+
+| Aspect          | Choice                                                                            |
+| --------------- | --------------------------------------------------------------------------------- |
+| **Invocation**  | K8s Job (short‑lived) triggered by receipt of a `Plan` on queue `code.plan.in`.   |
+| **Language**    | Python 3 .11                                                                      |
+| **Concurrency** | Uses `asyncio` for I/O, CPU‑bound graph analysis farmed to `ProcessPoolExecutor`. |
+| **State**       | Ephemeral clone at `/tmp/repo_<plan_id>`, removed on success.                     |
+
+---
+
+## 3  |  External Interfaces
+
+### 3.1  Protobuf messages (excerpt)
+
+```proto
+message CodingTask {
+  string id                 = 1;
+  string parent_plan_id     = 2;
+  int32  step_number        = 3;
+  string goal               = 4;               // "Refactor sanitize_input()"
+  repeated string paths     = 5;               // files to touch
+  repeated string blob_ids  = 6;               // pre‑fetched RAG chunk ids
+  repeated string depends_on = 7;              // other CodingTask.id
+  repeated string skeleton_patch = 8;          // unified‑diff hints
+  string complexity_label   = 9;               // trivial|moderate|complex
+  int32  estimated_tokens   = 10;
+  string base_commit_sha    = 11;
+}
+message TaskBundle {
+  string plan_id       = 1;
+  repeated CodingTask tasks = 2;
+}
+```
+
+### 3.2  Outbound calls
+
+| Service                     | RPC                         | Why                                        |
+| --------------------------- | --------------------------- | ------------------------------------------ |
+| **RAG‑Service**             | `HybridSearch`, `Snippet`   | Context discovery & pre‑fetch              |
+| **Git‑Adapter**             | `ReadFile`, `Blame`, `Diff` | Path validation, call‑graph                |
+| **Orchestrator**            | `Emit(TaskBundle)`          | Deliver output                             |
+| **CallGraph‑Cache** (Redis) | `GET/SET`                   | Store & reuse parsed graph across requests |
+
+---
+
+## 4  |  Algorithmic Workflow
+
+```mermaid
+flowchart TD
+    A[Receive Plan] --> B{For each Step}
+    B --> C[Resolve Affected Paths]
+    C --> D[Static Call‑Graph Build]
+    D --> E[Dependency Analysis]
+    E --> F[RAG Prefetch (snippets)]
+    F --> G[Patch Skeleton Derivation]
+    G --> H[Assemble CodingTask]
+    H --> I{More Steps?}
+    I -->|Yes| B
+    I -->|No| J[Emit TaskBundle]
+```
+
+**4.1  Resolve Affected Paths**
+
+1. If `Plan.affected_paths` already populated → trust but verify existence.
+2. Otherwise:
+
+   ```python
+   symbols = extract_symbols(step.goal + " " + " ".join(step.hints))
+   for s in symbols:
+       hits = rag.grep_like(regex=f"{s}\\b", repo=repo)
+       choose top‑scored path
+   ```
+
+**4.2  Static Call‑Graph Build**
+
+* Language‑specific *tree‑sitter* grammar parses **only the affected files plus their immediate imports/includes** for speed.
+* Graph nodes: functions, classes, modules; edges: `calls`, `imports`, `inherits`.
+* Cached per commit (key =`repo@sha`).
+
+**4.3  Dependency Analysis**
+
+* A step that **adds** a new symbol has to finish *before* any other step that **refactors** callers of that symbol.
+* Topologically sort; output DAG via `depends_on`.
+
+**4.4  RAG Prefetch**
+
+* For each path:
+
+  ```python
+  ctx = rag.hybrid_search(query=symbol_name, k=6, alpha=.2,
+                          filter={"path": path})
+  blob_ids = [c.id for c in ctx]
+  ```
+
+**4.5  Patch Skeleton Derivation (optional but boosts Coding‑Agent hit‑rate)**
+
+* Diff template = minimal unified‑diff with **`@@` line anchors** produced by running `difflib` against original file and an *LLM‑drafted* 3‑line stub (function signature only).
+* Saved as string list in `skeleton_patch`.
+
+---
+
+## 5  |  Prompt Template (LLM Call Inside Code‑Planner)
+
+> *Used only for patch‑skeleton derivation; may be skipped in offline mode.*
+
+```python
+SYSTEM = "You are a senior developer. Draft the smallest possible code stub..."
+USER = f"""
+File: {path}
+Goal: {step.goal}
+Existing symbol:
+{existing_code_snippet}
+"""
+# Expected answer: unified diff snippet
+```
+
+Parsed into `skeleton_patch`, validated by `patch_syntax_ok()` helper.
+
+---
+
+## 6  |  Complexity Estimation
+
+| Metric                              | Weight |
+| ----------------------------------- | ------ |
+| Number of touched files             | 0.4    |
+| Cyclomatic complexity delta (radon) | 0.3    |
+| Call‑graph fan‑out                  | 0.2    |
+| Line‑count delta estimate           | 0.1    |
+
+`complexity_score ∈ [0,1]` → label mapping: `≤0.3` trivial, `≤0.6` moderate, else complex.
+
+---
+
+## 7  |  Libraries and Versions
+
+| Concern       | Library                                              | Version |
+| ------------- | ---------------------------------------------------- | ------- |
+| AST / Graph   | `tree-sitter`, `py-tree-sitter` 0.22, `networkx` 3.3 |         |
+| Complexity    | `radon` 6.0                                          |         |
+| Git ops       | `gitpython` 3.2                                      |         |
+| RAG client    | Auto‑generated gRPC stubs (protobuf 4)               |         |
+| LLM           | `openai` 1.15‑python, fallback `ollama‑client`       |         |
+| Validation    | `pydantic` 2.x                                       |         |
+| Observability | `prometheus_client`, `opentelemetry‑api`             |         |
+| Parallelism   | `anyio`, `concurrent.futures`                        |         |
+
+All shipped in `python:3.11‑slim`; AST parser layer adds language runtime packages (`gcc`, `libclang`, etc.) only in the builder image, not the runtime.
+
+---
+
+## 8  |  Error Handling & Retries
+
+| Fault                     | Action                                                                                               | Retries |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- | ------- |
+| Missing file              | Mark step as `UNRESOLVED_PATH`, emit warning back to Orchestrator; loop continues.                   | n/a     |
+| RAG timeout               | Fallback to `ReadFile` raw slice; flag `partial_context=True`.                                       | 1       |
+| LLM failure (skeleton)    | Omit skeleton, issue log.                                                                            | 2       |
+| Dependency cycle detected | Break cycle by serialising entire bundle (`depends_on=[]`), set bundle flag `force_sequential=true`. | 1       |
+
+---
+
+## 9  |  Performance Targets
+
+| Metric                       | Goal   |
+| ---------------------------- | ------ |
+| p95 latency for 10‑step Plan | < 4 s  |
+| Peak RAM (medium repo)       | < 1 GB |
+| RAG calls per task           | ≤ 8    |
+| Cached call‑graph hit rate   | ≥ 70 % |
+
+---
+
+## 10  |  Security & Compliance
+
+* **Read‑only** clone, no `git submodule` recursion.
+* Strip secrets before including snippets in `skeleton_patch`.
+* Pass through SPDX license tags unchanged from Plan → CodingTask.
+* All outbound network restricted to RAG endpoint & LLM endpoint via per‑pod `NetworkPolicy`.
+
+---
+
+## 11  |  Observability
+
+| Metric                         | Description                   |
+| ------------------------------ | ----------------------------- |
+| `codeplanner_tasks_total`      | Counter by `complexity_label` |
+| `codeplanner_latency_ms`       | Histogram; label `step_kind`  |
+| `codeplanner_rag_docs_fetched` | Gauge, reset per run          |
+| `codeplanner_graph_parse_sec`  | Histogram                     |
+
+Traces exported via OpenTelemetry (`service.name = code‑planner`).
+
+---
+
+## 12  |  Local Dev Harness
+
+```bash
+# spin up dependencies
+docker compose up rag qdrant postgres
+
+# run planner against sample plan
+python -m code_planner.cli \
+       --plan tests/fixtures/plan_bugfix.json \
+       --repo ~/work/awesome-project \
+       --rag-endpoint localhost:8000
+```
+
+`tests/` contains golden TaskBundle JSON snapshots; run `pytest -k code_planner`.
+
+---
+
+## 13  |  Quick Example (Python)
+
+```python
+from code_planner.agent import CodePlanner
+from proto.plan_pb2 import Plan
+
+plan = Plan.FromString(open("plan.bin","rb").read())
+bundle = CodePlanner().run(plan)
+for t in bundle.tasks:
+    print(t.goal, ">", t.paths)
+```
+
+---
+
+### Key Take‑aways
+
+* **Code‑Planner** turns a human‑scale Plan into deterministic, parallelisable **CodingTasks** with pre‑fetched context, dramatically reducing token use and latency for Coding‑Agents.
+* A **call‑graph‑aware dependency DAG** ensures edits land in a safe order.
+* Optional **patch skeletons** boost LLM coding success without forcing the Coding‑Agent to rediscover trivial scaffolding.
+* Being **stateless and short‑lived** keeps horizontal scaling trivial and failure blast‑radius tiny.
+
+Hand this spec to an implementer and you can expect a fully functioning Code‑Planner micro‑service that plugs cleanly into the rest of your self‑healing loop.

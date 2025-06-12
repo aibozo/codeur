@@ -1,0 +1,239 @@
+Below is a **consolidated engineering plan** for the three remaining subsystems in the self‑healing loop:
+
+* **Build/CI Runner** – compiles, lints and executes the fast test suite
+* **Test Planner** – converts a feature description + build artefacts into machine‑readable test specifications
+* **Test Builder** – generates the test code, updates the repository, and triggers another build
+
+Although each service remains an independent, short‑lived micro‑job, the spec emphasises their **shared data contracts, orchestration order, and feedback signals** so they behave as a single, tightly‑coupled phase.
+
+---
+
+## 0  |  High‑level combined loop
+
+```
+Coding‑Agent ──┐
+               ▼
+       Build/CI Runner (B1)  ──success──►  Test Planner ──► Test Builder ──┐
+               ▲                         │                                  │
+               │                         │ emit TestSpec                    │
+               │                         ▼                                  │
+               └───────failure────────── Build/CI Runner (B2)◄──────────────┘
+
+If B2 fails ➜ Verifier emits Regression ticket → new Request‑Planner cycle
+```
+
+---
+
+## 1  |  Shared data contracts (protobuf extracts)
+
+```proto
+enum BuildStatus { PASSED=0; FAILED=1; ERRORED=2; }
+
+message BuildReport {
+  string commit_sha     = 1;
+  string branch_name    = 2;
+  BuildStatus status    = 3;
+  repeated string failed_tests = 4;
+  repeated string lint_errors  = 5;
+  Coverage coverage    = 6;     // line & branch %
+  string artefact_url   = 7;     // tar or docker digest
+}
+
+message TestSpec {
+  string id                 = 1;
+  string parent_commit_sha  = 2;
+  repeated TestCase cases   = 3;
+  CoverageTarget target     = 4;   // e.g. "client.py::fetch_data"
+  string rationale_md       = 5;
+  int32 estimated_tokens    = 6;
+}
+
+message GeneratedTests {
+  string spec_id          = 1;
+  string branch_name      = 2;
+  string commit_sha       = 3;
+  BuildStatus precheck    = 4;   // fast self‑lint result
+  repeated string notes   = 5;
+}
+```
+
+---
+
+## 2  |  Build/CI Runner (B/CI)
+
+| Attribute            | Value                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Invocation**       | Triggered by a **CommitResult SUCCESS** message or by Test‑Builder completion                                               |
+| **Container**        | `ci-runner:<lang>` (language‑specific image)                                                                                |
+| **Responsibilities** | *git checkout → dependency cache restore → build/compile → lint → run `pytest -m fast` (or language equivalent) → coverage* |
+| **Side‑effects**     | Publishes `BuildReport` on Kafka/AMQP topic `build.report`; uploads artefact to S3/minio; streams logs to Loki/Grafana      |
+| **Timeout**          | `BUILD_TIMEOUT_SEC` (default 900 s)                                                                                         |
+| **Libraries**        |                                                                                                                             |
+| – Python             | `pytest`, `coverage[toml]`, `ruff`, `mypy`                                                                                  |
+| – Node               | `jest`, `eslint`, `ts-node`                                                                                                 |
+| – Cache              | `pip-tools` lock reuse, `npm ci --prefer-offline`, `cargo fetch`                                                            |
+
+**Heuristics**
+
+* **Selective test run** – uses `pytest‑testmon` / `jest --onlyChanged` to cut latency when patch scope is small.
+* **Dynamic parallelism** – `pytest -n auto` (xdist) if CPU quota ≥ 4.
+
+**Metrics**
+`ci_build_duration`, `ci_tests_passed_total`, `ci_coverage_line_pct`, `ci_fail_reason`.
+
+---
+
+## 3  |  Test Planner (TP)
+
+| Item               | Description                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| **Input**          | `BuildReport` where `status==PASSED` + original *Plan* (available via Orchestrator lookup) |
+| **Output**         | `TestSpec`                                                                                 |
+| **LLM**            | Same gpt‑4o‑mini or local CodeLlama, **JSON mode**                                         |
+| **Prompt content** |                                                                                            |
+
+```
+SYSTEM: “You are Test‑Planner v1…”
+USER:
+  - CHANGE SUMMARY (from Plan.steps)
+  - COVERAGE GAPS (lines uncovered from BuildReport.coverage)
+  - FAILED TESTS (if any)
+  - CODE SNIPPETS (RAG top‑k around modified functions)
+Return JSON matching TestSpec schema.
+```
+
+**Algorithm**
+
+1. **Coverage gap analysis**
+   `coverage.json` parsed → pick functions/classes with `< MIN_LINE_COV` (default 80 %).
+2. **Risk heuristics**
+   If patch edits **public API surface** or **raises new exceptions**, mark as *High‑Priority* test target.
+3. **Test case enumeration**
+   LLM asked to enumerate ≤ 5 cases per target: success path, edge‑cases, failure path, concurrency, security (e.g., injection).
+4. **Complexity estimation**: token count ≈ (#cases × avg\_steps × 60)
+
+**Runtime**: < 4 s typical.
+
+Metrics: `testplanner_cases_total`, `tp_latency_ms`, `tp_llm_tokens`.
+
+---
+
+## 4  |  Test Builder (TB)
+
+| Attribute                                                                                    | Value            |
+| -------------------------------------------------------------------------------------------- | ---------------- |
+| **Input**                                                                                    | `TestSpec`       |
+| **Output**                                                                                   | `GeneratedTests` |
+| **Process**                                                                                  |                  |
+| 1  Fetch context → hydrate target code via RAG snippets (radius = 40 lines).                 |                  |
+| 2  LLM prompt generates test code **only in test files** (`tests/test_<module>_agent.py`).   |                  |
+| 3  Apply patch via Git; run **self‑check**: `pytest -q -m fast`, `ruff --fix` on tests only. |                  |
+| 4  If self‑check passes → commit `agt/testbuilder/<spec_id>`; emit `GeneratedTests`.         |                  |
+| 5  If self‑check fails up to 2 attempts, emit `GeneratedTests` with `precheck=FAILED`.       |                  |
+
+**Prompt skeleton**
+
+```
+SYSTEM: “You write pytest‑style unit tests…”
+USER:
+  - GOAL: {case.goal}
+  - FUNCTION UNDER TEST: {target_path}:{line_range}
+  - FIXTURES AVAILABLE: {list_from_repo}
+  - STYLE GUIDE: use pytest, assert msgs, no sleeps ＞50 ms
+Return unified diff.
+```
+
+**Validation**
+
+* `unidiff` parsing
+* `pytest --collect-only` must list ≥ 1 new test
+* Disallow fixtures whose names are undefined (static regex check)
+
+**Libraries**
+
+* `pytest`, `pytest-cov`
+* `faker`, `hypothesis` (property‑based optional)
+* `datamodel-code-generator` to stub Pydantic models if referenced
+
+Metrics: `testbuilder_new_tests`, `tb_patch_size_loc`, `tb_llm_tokens`.
+
+---
+
+## 5  |  Orchestrator coordination rules (expanded)
+
+| When                               | Action                                           |
+| ---------------------------------- | ------------------------------------------------ |
+| Coding‑Agent emits **SUCCESS**     | Spawn Build/CI Runner B1                         |
+| B1 **PASSED**                      | Spawn Test‑Planner                               |
+| B1 **FAILED/ERRORED**              | Verifier → new Request‑Planner cycle             |
+| Test‑Planner emits **TestSpec**    | Spawn Test‑Builder                               |
+| Test‑Builder **precheck = PASSED** | Spawn Build/CI Runner B2                         |
+| Build B2 **PASSED**                | Merge branch → notify upstream; archive artefact |
+| Build B2 **FAILED**                | Verifier emits Regression → new Request‑Planner  |
+
+Retries governed by **Back‑off**:
+
+```
+attempt_1 = immediate
+attempt_2 = +90 s
+attempt_3 = +5 min
+```
+
+---
+
+## 6  |  Security & Isolation (all three jobs)
+
+* Run in **non‑root, capability‑dropped** containers.
+* File‑system read‑only except for `/workspace` and `/tmp`.
+* Network egress only to package mirrors (pypi/npm/crates) and internal services (RAG, Git, Orchestrator).
+* Secrets scanning: block commits containing tokens by pre‑commit hook (`gitleaks`).
+
+---
+
+## 7  |  Observability matrix
+
+| Service      | Span names                                       | Key logs               |
+| ------------ | ------------------------------------------------ | ---------------------- |
+| Build/CI     | `install_deps`, `run_tests`, `collect_cov`       | stdout of failed tests |
+| Test‑Planner | `rag_fetch`, `llm_plan`, `emit_spec`             | LLM draft JSON         |
+| Test‑Builder | `draft_patch`, `selfcheck_pytest`, `commit_push` | diff preview           |
+
+Prometheus alerts:
+
+* `ci_build_failure_rate > 15 % for 10 m`
+* `testbuilder_selfcheck_failures_total > 3`
+* `coverage_drop > 5 %` between B1 and B2
+
+---
+
+## 8  |  Local developer harness
+
+```bash
+# spin infra
+docker compose up rag qdrant git_adapter minio
+
+# 1. simulate Coding‑Agent success
+./scripts/dev/mock_commit.sh
+
+# 2. run build
+python -m ci_runner.cli --commit $(git rev-parse HEAD)
+
+# 3. generate test spec
+python -m test_planner.cli --report build_report.json --plan plan.json
+
+# 4. build tests
+python -m test_builder.cli --spec testspec.json
+```
+
+---
+
+### Final thoughts
+
+This combined specification:
+
+* **Closes the feedback loop** from code change ➜ build ➜ test design ➜ test implementation ➜ rebuild.
+* Keeps every component **stateless and horizontally scalable**, relying on shared protobuf contracts and queue topics.
+* Enforces quality through **self‑verification** (lint + fast tests) *before* any artifact leaves the agent container, drastically cutting flaky builds.
+* Provides clear **observability hooks** and **failure‑handling paths**, ensuring regressions route back to the Request‑Planner for a new healing cycle.
+
+With this, the self‑healing loop is fully defined from first intent through validated, tested code ready for merge.

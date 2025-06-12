@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "agent"
+version = "0.1.0"
+description = "Self-healing agent loop system with Request Planner interface"
+authors = ["Agent Team"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+click = "^8.1.0"
+pydantic = "^2.0"
+fastapi = "^0.100.0"
+uvicorn = "^0.20.0"
+rich = "^13.0.0"
+openai = "^1.0"
+gitpython = "^3.1.0"
+sqlalchemy = "^2.0"
+aiosqlite = "^0.19.0"
+anyio = "^4.0.0"
+tenacity = "^8.2.0"
+python-dotenv = "^1.0.0"
+chromadb = "^0.4.0"
+tiktoken = "^0.5.0"
+numpy = "^1.24.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-asyncio = "^0.20.0"
+pytest-cov = "^4.0.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+mypy = "^1.0.0"
+ipython = "^8.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --cov=src --cov-report=term-missing"
+
+[tool.poetry.scripts]
+agent = "src.request_planner.cli:main"

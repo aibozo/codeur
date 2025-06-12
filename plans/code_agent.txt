@@ -1,0 +1,265 @@
+Below is a **full‑stack engineering specification** for the **Coding‑Agent**—the workhorse that converts each `CodingTask` into a concrete Git commit while guarding correctness and style.  The spec is designed for a Python‑first environment and aligns with the RAG Service, Request‑Planner, and Code‑Planner specs you already have.
+
+---
+
+## 1  |  Mission & Boundaries
+
+| Item               | Description                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purpose**        | Generate, validate, and commit code that satisfies the goal expressed in a `CodingTask`.                                                                                        |
+| **Success signal** | Returns `CommitResult{task_id, commit_sha, status=SUCCESS}` to the Orchestrator queue **only** after the patch compiles, lints cleanly, and all *fast* unit tests pass locally. |
+| **Out‑of‑scope**   | Heavy integration tests, full CI, test authoring (handled by Test‑Builder).                                                                                                     |
+
+---
+
+## 2  |  Runtime Topology
+
+```
+┌───────────────────────── K8s Job (per CodingTask) ──────────────────────────┐
+│  ➊ Init‑Container: git‑clone + deps cache                                   │
+│  ───────────────────────────────────────────────────────────────────────────│
+│  ➋ Coding‑Agent Main                                                       │
+│     • Load task → fetch context                                            │
+│     • LLM‑draft patch                                                      │
+│     • Self‑check loop (fmt, lint, unit‑tests)                              │
+│     • Commit & push feature branch                                         │
+│     • Emit CommitResult                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+*Stateless; destroyed after success or after `MAX_RETRIES`.*
+
+---
+
+## 3  |  Interfaces
+
+### 3.1  Input (protobuf)
+
+```proto
+message CodingTask {            // identical to spec in Code‑Planner
+  string id;
+  string parent_plan_id;
+  int32  step_number;
+  string goal;
+  repeated string paths;
+  repeated string blob_ids;
+  repeated string depends_on;
+  repeated string skeleton_patch;
+  string complexity_label;
+  int32  estimated_tokens;
+  string base_commit_sha;
+}
+```
+
+### 3.2  Output
+
+```proto
+message CommitResult {
+  string task_id          = 1;
+  string commit_sha       = 2;
+  string branch_name      = 3;
+  Status status           = 4;   // SUCCESS | SOFT_FAIL | HARD_FAIL
+  repeated string notes   = 5;   // diagnostics or retry hints
+  int32 retries           = 6;
+  float llm_tokens_used   = 7;
+}
+```
+
+### 3.3  External RPCs Called
+
+| Service                | RPC                                   | Usage                                         |
+| ---------------------- | ------------------------------------- | --------------------------------------------- |
+| **RAG‑Service**        | `Snippet`, `HybridSearch`, `GrepLike` | Fetch expanded context                        |
+| **Git‑Adapter**        | `ApplyPatch`, `Commit`, `PushBranch`  | VCS operations                                |
+| **Shell‑Exec Sidecar** | `run(cmd, timeout)`                   | run `pytest -m fast`, `black`, `pylint`, etc. |
+
+---
+
+## 4  |  Internal Workflow
+
+```
+receive task
+   ▼
+gather_context()
+   ▼
+draft_patch()  ──► validate_patch() ──► success → commit_and_emit()
+        ▲                │
+        │    failure     │
+        └────<───────────┘    ( ≤ MAX_RETRIES, default 2 )
+```
+
+### 4.1  Gather Context
+
+1. **Snippet Prefetch** – hydrate `blob_ids` into full code via `RAG.snippet(id, radius=20)`.
+2. **Adjacent Imports** – `grep_like(r'^import .*<symbol>')` for each path.
+3. **Runtime Logs (optional)** – If previous run failed, include failing stack‑trace lines (passed in `notes`).
+4. **Token Budgeting** – Hard cap `context_tokens = 3 k`; overflow triggers summarisation with `tiktoken` + `pytextrank` algo.
+
+### 4.2  Draft Patch (LLM)
+
+| Component           | Choice                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Model**           | `gpt‑4o‑mini‑code‑30k` (JSON mode) or local `CodeLlama‑70B‑Instruct`                                           |
+| **Prompt style**    | *System* + *Few‑shot* + *Task spec* + *Context* → **function call** returning JSON with `diff` & `explanation` |
+| **Output contract** | `{"diff":"<unified patch>", "reasoning":"…"} `                                                                 |
+
+*Strict JSON + Diff formatting checked by `unidiff`.  Reject and re‑prompt if invalid.*
+
+### 4.3  Validate Patch
+
+```python
+apply_patch()                 # git apply --index
+run_black()                   # auto‑format
+run_isort()
+run_pylint(threshold=8.5)     # configurable
+run_unit_tests(mark="fast")   # pytest -q -m fast
+```
+
+Failures captured into `notes`; on lint failure agent tries **auto‑fix** once:
+
+```python
+if lint_score < threshold:
+    context.append("pylint error: " + lint_output)
+    draft_patch(retry=True)
+```
+
+*Compile/runtime failures allowed **MAX\_RETRIES=2** before `SOFT_FAIL` result is emitted; Orchestrator may decide to reschedule.*
+
+### 4.4  Commit & Push
+
+```bash
+git checkout -b agt/{task_id}
+git add -u {paths}
+git commit -m "feat: {goal}\n\n[agent:{task_id}]"
+git push origin agt/{task_id}
+```
+
+Commit SHA returned in `CommitResult`.
+
+---
+
+## 5  |  Prompt Template (abridged)
+
+```python
+SYSTEM = """
+You are Coding‑Agent v1. Generate ONLY a unified diff that implements the
+requested change. Do not alter lines you are not instructed to change unless
+required for compilation. Keep commits small and focused.
+"""
+
+USER = f"""
+# TASK GOAL
+{task.goal}
+
+# FILES TO TOUCH
+{task.paths}
+
+# CONTEXT SNIPPETS
+{render_snippets(context)}
+
+# EXISTING SKELETON PATCH (may edit)
+{task.skeleton_patch}
+
+# DIFF FORMAT
+--- a/<path>
++++ b/<path>
+@@ context @@
+<code>
+"""
+FUNCTION_SPEC = {
+  "name": "submit_patch",
+  "parameters": {
+      "type": "object",
+      "properties": {
+        "diff": {"type":"string"},
+        "reasoning": {"type":"string"}
+  } }
+}
+```
+
+---
+
+## 6  |  Key Libraries & Versions
+
+| Concern       | Library                                  | Version |
+| ------------- | ---------------------------------------- | ------- |
+| LLM API       | `openai` 1.15 or `litellm` router        |         |
+| Diff parsing  | `unidiff` 0.7                            |         |
+| Formatting    | `black` 24.4, `isort` 5.13               |         |
+| Linting       | `pylint` 3.1, `ruff` 0.4 (optional)      |         |
+| Tests         | `pytest` 8.2                             |         |
+| Git           | `gitpython` 3.2                          |         |
+| Concurrency   | `anyio`                                  |         |
+| Observability | `prometheus_client`, `opentelemetry‑api` |         |
+
+Docker base: `python:3.11‑slim` + layer with dev deps (black, pytest, gcc).
+
+---
+
+## 7  |  Observability & Metrics
+
+| Metric                                     | Meaning                                     |
+| ------------------------------------------ | ------------------------------------------- |
+| `codingagent_latency_ms`                   | End‑to‑end per task                         |
+| `codingagent_retries`                      | Counter, label `reason` (lint, test, merge) |
+| `codingagent_llm_tokens`                   | Histogram                                   |
+| `codingagent_patch_size_loc`               | Gauge                                       |
+| `codingagent_success_total` / `fail_total` | Task outcomes                               |
+
+Traces (OpenTelemetry) include spans: `gather_context`, `llm_call`, `apply_patch`, `unit_tests`.
+
+---
+
+## 8  |  Performance Targets
+
+| Goal                             | Target |
+| -------------------------------- | ------ |
+| p95 latency (moderate task)      | ≤ 40 s |
+| LLM tokens per draft             | ≤ 5 k  |
+| Patch compile success on 1st try | ≥ 70 % |
+| Mean retries                     | < 0.5  |
+
+---
+
+## 9  |  Failure Modes & Handling
+
+| Failure                          | Action                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| **Patch rejects** (`git apply`)  | Strip trailing spaces; if still fails, set `HARD_FAIL`                    |
+| **Flaky tests**                  | Re‑run once; mark `SOFT_FAIL` if non‑deterministic                        |
+| **Merge conflict with upstream** | Rebase on latest `base_commit_sha`; if conflict persists emit `SOFT_FAIL` |
+| **Exceeded token budget**        | Context summarisation; if still > limit emit `HARD_FAIL`                  |
+
+---
+
+## 10  |  Security & Policy Compliance
+
+* **Network egress** restricted to RAG, Git, and LLM endpoints.
+* Secrets scrubbed by regex before entering prompt (same list as Planner).
+* License tags from task payload written into commit message footer (`License-Tag: MIT`).
+* Pod runs as non‑root; seccomp/bubblewrap isolates `Shell‑Exec` sidecar.
+
+---
+
+## 11  |  Local Developer Harness
+
+```bash
+docker compose up rag git_adapter
+python -m coding_agent.cli \
+       --task tests/fixtures/codingtask_add_retry.json \
+       --repo ~/work/awesome-project \
+       --rag-endpoint http://localhost:8000
+```
+
+`pytest -k coding_agent` runs fixture‑based unit tests simulating lint/test failure loops.
+
+---
+
+### Recap
+
+* The **Coding‑Agent** consumes a rich `CodingTask`, consults the RAG Service, drafts an **LLM‑generated patch**, and **self‑verifies** it locally before committing.
+* A carefully tuned **retry & self‑repair loop** maximises first‑time success while preventing infinite cycles.
+* Strict **JSON diff outputs + schema validation** keep conversations with the LLM deterministic and auditable.
+* Observability hooks and deterministic exit codes let the Orchestrator stitch Coding‑Agent runs into a larger **self‑healing workflow** with minimal glue.
+
+You now have a production‑grade blueprint ready for implementation or extension (e.g., adding language‑specific linters, containerised compilation for C/C++, or GPU build acceleration for CUDA codebases).

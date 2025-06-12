@@ -1,0 +1,194 @@
+Below is a **concrete, implementation‑oriented blueprint** for a *self‑healing* agent loop that plans a code change, applies it, then plans and builds the tests to verify it.  I break the design into four sections:
+
+1. **High‑level architecture & data stores**
+2. **Agent roles, lifecycles, and tool kits**
+3. **End‑to‑end control flow (ASCII flowchart)**
+4. **Per‑agent initialization & hand‑off details (ASCII swim‑lanes)**
+
+---
+
+## 1  |  High‑level architecture & data stores
+
+| Layer                        | Purpose                                                    | Main Tech Choices                                         |
+| ---------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
+| **Orchestrator / Scheduler** | Routes tasks, enforces stage order, restarts failed tasks. | Celery / Temporal / Ray Workflows                         |
+| **Agents (LLM‑backed)**      | Autonomous units listed in §2.                             | OpenAI function calls or self‑hosted LLaMA‑3 + Guardrails |
+| **RAG Service (stateless)**  | Unified retrieval for all agents.                          | LlamaIndex, Qdrant / Weaviate, CodeBERT embeddings        |
+| **Execution Sandbox**        | Runs builds/tests safely.                                  | Docker‑in‑Docker, firejail                                |
+| **Version Control Adapter**  | Read/commit/branch/diff.                                   | pygit2 / dulwich                                          |
+| **Observability Bus**        | Streaming events; enables feedback.                        | Kafka / NATS + Opentelemetry                              |
+
+*Why a **single shared RAG service?** We avoid N copies of the vector index and guarantee every agent sees identical context.  We expose it via a lightweight gRPC/REST interface so agents stay language‑agnostic.*
+
+---
+
+## 2  |  Agent roster, lifecycles, tools
+
+> *Notation* · *(S)* = short‑lived per request · *(L)* = long‑lived daemon
+
+### ①  **Request‐Planner (S)**
+
+*Receives* a human or upstream spec (natural language or structured diff request).
+**Tools**:
+
+* `RAG.query()`, `Git.read_file()`, `Git.diff()`, `TaskGraph.create()`
+* Output schema: `Plan{steps[], rationale, affected_paths[]}`
+
+### ②  **Code‑Planner (S)**
+
+Refines Planner’s *what* into concrete *how* for the Coding agent. Splits work if large.
+**Tools**:
+
+* Same as above + `ComplexityEstimator`, `Chunker`
+* Emits `CodingTask{patch_goal, dependency_list, context_blobs[]}`
+
+### ③  **Coding‑Agent (S)** *(may spawn multiple in parallel)*
+
+Generates/edits code and commits to a feature branch.
+**Tools**:
+
+* `RAG.query()`, `Git.apply_patch()`, `Git.run_lint()`, `Shell.exec()` (unit‑of‑work limited), `DiffReviewer`
+
+### ④  **Build/CI Runner (S)**
+
+Runs build + existing test suite; pushes artifact digest and results to bus.
+**Tools**:
+
+* `Shell.exec()`, `Docker.run()`, `TestReporter`
+
+### ⑤  **Test‑Planner (S)**
+
+Consumes *successful build + spec* to author test requirements.
+**Tools**:
+
+* `RAG.query()`, `Coverage.report()`, `Git.diff()` → `TestSpec{cases[], coverage_targets}`
+
+### ⑥  **Test‑Builder (S)**
+
+Implements test code, updates test suite, re‑invokes Build/CI Runner.
+**Tools**:
+
+* Same as Coding‑Agent + `MockGenerator`, `FixtureLibrary`
+
+### ⑦  **Verifier (L)**
+
+Listens to CI events; on failure emits *regression ticket* back to Request‑Planner.
+**Tools**:
+
+* `EventBus.listen()`, `RootCauseAnalyzer`, `AlertManager`
+
+### ⑧  **RAG‑Service (L)**
+
+Already described—indexes code, docs, commit messages, architecture diagrams.
+**Tools (exposed)**:
+
+* `similarity_search(query, k)`, `grep_like(regex)`, `snippet(id)`
+
+---
+
+## 3  |  End‑to‑end control flow
+
+```
++---------------------------- SELF‑HEALING LOOP -----------------------------+
+|                                                                            |
+|   Human / Upstream Request                                                 |
+|           │                                                                |
+|           ▼                                                                |
+|   ┌───────────────────┐                                                    |
+|   │ 1. Request‑Planner│   ←———— uses RAG for global context                |
+|   └────────┬──────────┘                                                    |
+|            │ emits Plan                                                   |
+|            ▼                                                               |
+|   ┌───────────────────┐                                                    |
+|   │ 2. Code‑Planner   │                                                    |
+|   └────────┬──────────┘                                                    |
+|            │ CodingTask                                                   |
+|            ▼                                                               |
+|   ┌───────────────────┐                                                    |
+|   │ 3. Coding‑Agent   │ —──> commits patch ► feature branch                |
+|   └────────┬──────────┘                                                    |
+|            │ trigger build                                                |
+|            ▼                                                               |
+|   ┌───────────────────┐                                                    |
+|   │ 4. Build/CI Runner│ —──> status + artifact                             |
+|   └────────┬──────────┘                                                    |
+|            │ success?                                                     |
+|   ┌────────┴───────────── YES ───────────────────────────────────────────┐ |
+|   │                                                                  NO │ |
+|   ▼                                                                     ▼ |
+|5.Test‑Planner►Test‑Builder►Build/CI  <— loop until tests green      Verifier│
+|   │                │              │                                   │    |
+|   └────────────────┴──────────────┴───────────────────────────────────┘    |
++----------------------------------------------------------------------------+
+```
+
+---
+
+## 4  |  Agent swim‑lane (creation, context hand‑off, termination)
+
+```
+Timeline →
+Request‑Planner  |---spawn-->| RP
+RAG‑Service (L)  |=========== listening ===========|
+Code‑Planner     |         |--CP--|                         (killed on finish)
+Coding‑Agent     |              |--CA--|                     (may fork 2..n)
+Build/CI Runner  |                         |--B1--| |--B2--|
+Test‑Planner     |                                   |--TP--|
+Test‑Builder     |                                       |--TB--|
+Verifier (L)     |=========== event stream ============|
+```
+
+### Context hand‑off rules
+
+| From → To                   | Medium         | Payload                               |
+| --------------------------- | -------------- | ------------------------------------- |
+| Planner → Code‑Planner      | Task queue     | `Plan`                                |
+| Code‑Planner → Coding‑Agent | Task queue     | `CodingTask`, *pre‑pulled* RAG chunks |
+| Coding‑Agent → Build Runner | Git branch ref | Branch name, commit SHA               |
+| Build‑Runner → Test‑Planner | Event bus      | `BuildSuccess{sha, diff, coverage}`   |
+| Test‑Planner → Test‑Builder | Task queue     | `TestSpec` + relevant RAG snippets    |
+| Test‑Builder → Build‑Runner | Git branch ref | Updated branch with tests             |
+| Verifier → Request‑Planner  | Event bus      | `Regression{log, failing_tests}`      |
+
+---
+
+## Practical notes & rationale
+
+1. **RAG chunk granularity**
+   *Source* (file‑level) plus *symbol* (function/class) embeddings allow precision and recall. Store the *embedding key → Git blob SHA* so retrieval survives rebases.
+
+2. **Grep vs RAG**
+
+   * Use `grep_like` when the agent already knows a symbol name (O(1) over index).
+   * Use semantic search when phrasing is fuzzy (“function that sanitizes input”).
+     Both live behind the same RAG service API so the caller never worries which strategy fired.
+
+3. **Isolation & rollback**
+   Every agent writes to an ephemeral feature branch.  The Orchestrator merges to trunk only after Verifier emits green.  A failed loop leaves the branch+artifacts for inspection.
+
+4. **Scalability**
+   Each *Planner/Builder* is short‑lived; only RAG‑Service and Verifier are daemons.  Horizontal scaling is therefore mostly on easily stateless workers.
+
+5. **Security**
+   Execution sandbox uses non‑root Docker with seccomp/apparmor.  LLM agents never get raw network beyond RAG+Git endpoints.
+
+6. **Extensibility**
+
+   * Plug in additional *Specialist Agents* (e.g., “Database Migration Agent”) by inserting new Planner steps.
+   * Larger architecture can treat this loop as a black‑box “Code‑Change Service” micro‑fronted by the Request‑Planner.
+
+---
+
+### Minimal start‑up checklist
+
+| Step | What to build first                               | Why                      |
+| ---- | ------------------------------------------------- | ------------------------ |
+| 1    | RAG‑Service prototype w/ file & symbol embeddings | All agents need it       |
+| 2    | Request‑Planner + Code‑Planner (dry‑run)          | Validates planning logic |
+| 3    | Coding‑Agent integrated with Git patch apply      | Produces diffs           |
+| 4    | Local Build/CI Runner (pytest, npm test, etc.)    | Fails fast               |
+| 5    | Test‑Planner/Builder + Verifier                   | Completes loop           |
+
+---
+
+**You now have a modular, reproducible specification—down to agent lifecycles and APIs—that can be slotted cleanly into a larger multi‑agent platform.** Feel free to ask for deeper dives (e.g., RAG index schema, exact protobuf definitions for payloads, or guard‑rail prompts).

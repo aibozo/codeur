@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package agent;
+
+import "google/protobuf/timestamp.proto";
+
+// Common enums
+enum BuildStatus {
+  BUILD_STATUS_UNKNOWN = 0;
+  BUILD_STATUS_SUCCESS = 1;
+  BUILD_STATUS_FAILED = 2;
+  BUILD_STATUS_TIMEOUT = 3;
+  BUILD_STATUS_CANCELLED = 4;
+}
+
+enum ComplexityLevel {
+  COMPLEXITY_UNKNOWN = 0;
+  COMPLEXITY_TRIVIAL = 1;
+  COMPLEXITY_MODERATE = 2;
+  COMPLEXITY_COMPLEX = 3;
+}
+
+enum StepKind {
+  STEP_KIND_UNKNOWN = 0;
+  STEP_KIND_EDIT = 1;
+  STEP_KIND_ADD = 2;
+  STEP_KIND_REMOVE = 3;
+  STEP_KIND_REFACTOR = 4;
+  STEP_KIND_TEST = 5;
+  STEP_KIND_REVIEW = 6;
+}
+
+// File change information
+message FileDelta {
+  string path = 1;
+  string old_content = 2;
+  string new_content = 3;
+  string diff = 4;  // unified diff format
+}
+
+// Test coverage information
+message Coverage {
+  double line_percentage = 1;
+  double branch_percentage = 2;
+  int32 total_lines = 3;
+  int32 covered_lines = 4;
+  int32 total_branches = 5;
+  int32 covered_branches = 6;
+}
+
+// Input to Request-Planner (via plan.in topic)
+message ChangeRequest {
+  string id = 1;
+  string requester = 2;  // user or upstream service
+  string repo = 3;
+  string branch = 4;  // usually 'main'
+  string description_md = 5;  // NL spec or JIRA link
+  repeated FileDelta deltas = 6;  // optional diff from upstream
+  google.protobuf.Timestamp created_at = 7;
+  map<string, string> metadata = 8;  // additional context
+}
+
+// Step in a plan
+message Step {
+  int32 order = 1;
+  string goal = 2;
+  StepKind kind = 3;
+  repeated string hints = 4;
+  map<string, string> metadata = 5;
+}
+
+// Output from Request-Planner
+message Plan {
+  string id = 1;  // mirror of ChangeRequest.id
+  string parent_request_id = 2;
+  repeated Step steps = 3;
+  repeated string rationale = 4;  // free-text bullets
+  repeated string affected_paths = 5;
+  ComplexityLevel complexity_label = 6;
+  int32 estimated_tokens = 7;
+  string created_by_sha = 8;  // git SHA of agent container
+  google.protobuf.Timestamp created_at = 9;
+  map<string, string> metadata = 10;
+}
+
+// Task bundle from Code-Planner
+message TaskBundle {
+  string id = 1;
+  string parent_plan_id = 2;
+  repeated CodingTask tasks = 3;
+  string execution_strategy = 4;  // parallel, sequential, etc.
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Individual coding task
+message CodingTask {
+  string id = 1;
+  string parent_plan_id = 2;
+  int32 step_number = 3;
+  string goal = 4;  // "Refactor sanitize_input()"
+  repeated string paths = 5;  // files to touch
+  repeated string blob_ids = 6;  // pre-fetched RAG chunk ids
+  repeated string depends_on = 7;  // other CodingTask.id
+  repeated string skeleton_patch = 8;  // unified-diff hints
+  ComplexityLevel complexity_label = 9;
+  int32 estimated_tokens = 10;
+  string base_commit_sha = 11;
+  map<string, string> metadata = 12;
+}
+
+// Result from Coding-Agent
+message CommitResult {
+  string task_id = 1;
+  string commit_sha = 2;
+  string branch_name = 3;
+  bool success = 4;
+  string error_message = 5;
+  repeated string modified_files = 6;
+  int32 lines_added = 7;
+  int32 lines_deleted = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// Build report from CI/Build Runner
+message BuildReport {
+  string commit_sha = 1;
+  string branch_name = 2;
+  BuildStatus status = 3;
+  repeated string failed_tests = 4;
+  repeated string lint_errors = 5;
+  Coverage coverage = 6;
+  string artifact_url = 7;  // tar or docker digest
+  int64 duration_ms = 8;
+  google.protobuf.Timestamp created_at = 9;
+  map<string, string> metadata = 10;
+}
+
+// Test specification from Test-Planner
+message TestSpec {
+  string id = 1;
+  string parent_commit_sha = 2;
+  repeated TestCase test_cases = 3;
+  string test_strategy = 4;  // unit, integration, e2e
+  repeated string relevant_files = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// Individual test case
+message TestCase {
+  string name = 1;
+  string description = 2;
+  string test_type = 3;  // unit, integration, e2e
+  repeated string targets = 4;  // functions/classes to test
+  repeated string assertions = 5;
+  map<string, string> metadata = 6;
+}
+
+// Regression notification from Verifier
+message Regression {
+  string id = 1;
+  string commit_sha = 2;
+  string branch_name = 3;
+  repeated string failing_tests = 4;
+  repeated string error_logs = 5;
+  string severity = 6;  // low, medium, high, critical
+  google.protobuf.Timestamp detected_at = 7;
+  map<string, string> metadata = 8;
+}
+
+// Generic event for observability
+message AgentEvent {
+  string agent_name = 1;
+  string event_type = 2;
+  string event_id = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  map<string, string> data = 5;
+  string trace_id = 6;
+  string span_id = 7;
+}

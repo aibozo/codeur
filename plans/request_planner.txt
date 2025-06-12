@@ -1,0 +1,231 @@
+Below is an **engineering‑grade specification** for the **Request‑Planner** agent—the first node in your self‑healing loop.  It is laid out so you can hand it to a teammate and have them implement the service without further clarifications.
+
+---
+
+## 1  |  Mission & Guarantees
+
+| Item           | Description                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purpose**    | Convert a high‑level *Change Request* (natural‑language or structured diff) into a machine‑readable **Plan** that later agents can execute. |
+| **Guarantees** | *Deterministic schema*, *idempotent output for identical inputs*, *no side‑effects other than emitting Plan to Orchestrator queue*.         |
+| **Non‑Goals**  | Writing code, drafting tests, or running builds.                                                                                            |
+
+---
+
+## 2  |  Runtime Context
+
+* **Invocation source**: Orchestrator places a `ChangeRequest` message on AMQP/Kafka topic `plan.in`.
+* **Instance model**: *Short‑lived* container (**K8s Job**) per request; no long‑running state.
+* **Language**: Python 3.11.
+
+---
+
+## 3  |  External Interfaces
+
+### 3.1  Protobuf messages
+
+```proto
+message ChangeRequest {
+  string id              = 1;
+  string requester       = 2;           // user or upstream service
+  string repo            = 3;
+  string branch          = 4;           // usually 'main'
+  string description_md  = 5;           // NL spec or JIRA link
+  repeated FileDelta deltas = 6;        // optional diff from upstream
+}
+
+message Plan {
+  string id                  = 1;       // mirror of ChangeRequest.id
+  string parent_request_id   = 2;
+  repeated Step steps        = 3;
+  repeated string rationale  = 4;       // free‑text bullets
+  repeated string affected_paths = 5;
+  string complexity_label    = 6;       // “trivial” | “moderate” | “complex”
+  int32 estimated_tokens     = 7;
+  string created_by_sha      = 8;       // git SHA of agent container
+}
+
+message Step {
+  int32 order           = 1;
+  string goal           = 2;            // “Refactor sanitize_input()”
+  StepKind kind         = 3;            // ENUM: EDIT, ADD, REMOVE, REFACTOR
+  repeated string hints = 4;            // quick guidance for Coding‑Agent
+}
+```
+
+### 3.2  gRPC client stubs used
+
+| Service          | RPC                                   | Purpose                    |
+| ---------------- | ------------------------------------- | -------------------------- |
+| **RAG**          | `HybridSearch`, `Snippet`             | Retrieve code/doc context. |
+| **Git‑Adapter**  | `Diff(request_sha)`, `ReadFile(path)` | Validate path existence.   |
+| **Orchestrator** | `Emit(Plan)`                          | Push result to queue.      |
+
+---
+
+## 4  |  Algorithm
+
+> **Paradigm**: ReAct‑style reasoning + function calls ([arxiv.org][1])
+
+1. **Pre‑flight**
+
+   * Deduplicate request; if `ChangeRequest.id` already processed, **ACK + exit**.
+   * Pull repo metadata (default `origin/main`, shallow clone).
+
+2. **Context Retrieval**
+
+   ```python
+   ctx = rag.hybrid_search(
+           query=cr.description_md,
+           k=40,
+           alpha=0.25,
+           filter={"repo": cr.repo})
+   snippets = [rag.snippet(r.id, radius=15) for r in ctx.top10()]
+   ```
+
+   The top snippets feed the prompt as *context block*.
+
+3. **LLM‑based Planning**
+
+   * **System prompt** *(condensed)*
+
+     ```
+     You are Request‑Planner v1. Turn a software change request into a numbered
+     action plan for downstream agents. Think step‑by‑step but OUTPUT ONLY JSON
+     conforming to Plan schema.
+     ```
+   * **Few‑shot**: 3 examples covering *bug‑fix*, *feature‑add*, *refactor*.
+   * **Chain‑of‑thought** *scratched* (not returned) → ensures model quality; final answer validated via `pydantic`.
+   * **Function call**: `emit_plan(Plan)`—OpenAI function‑calling style to capture output in strict JSON ([community.openai.com][2]).
+
+4. **Complexity Scoring**
+
+   * Heuristic: `len(steps)`, `max(diff LOC)`, cross‑file edges via `networkx` dependency DAG.
+   * Label mapped to `complexity_label` field.
+
+5. **Self‑verification pass** (“reflection”)
+
+   * Re‑ask model: “Does each step map to at least one `affected_path`? Return TRUE/FALSE.”
+   * On FALSE retry up to 2 ×.
+
+6. **Emit Plan**
+
+   * Wrap in protobuf; `orchestrator.emit(plan)`; tag with container SHA & timestamp.
+
+7. **Metrics** (`prometheus_client`)
+
+   * `plan_steps_count`, `plan_latency_ms`, `rag_docs_used`, `llm_tokens_used`.
+
+---
+
+## 5  |  Prompt Template (Python‑string literal)
+
+```python
+SYSTEM = """You are Request‑Planner v1…
+Return a JSON dictionary exactly matching this schema:
+{{
+  "id": "<string>",
+  "parent_request_id": "<string>",
+  "steps": [{{"order":1,"goal":"…","kind":"EDIT","hints":["…"]}}],
+  "rationale": ["…"],
+  "affected_paths": ["path/to/file.py"],
+  "complexity_label": "moderate",
+  "estimated_tokens": 123
+}}"""
+USER = f"""
+# CHANGE REQUEST
+{cr.description_md}
+
+# CONTEXT SNIPPETS
+{format_snippets(snippets)}
+
+# DELTAS
+{json.dumps(cr.deltas[:5],indent=2)}
+"""
+```
+
+---
+
+## 6  |  Tools & Helper Libraries
+
+| Concern       | Library                                  | Reason                      |
+| ------------- | ---------------------------------------- | --------------------------- |
+| LLM API       | `openai` >= 1.15                         | Function calling, JSON mode |
+| Validation    | `pydantic` 2.x                           | Schema check & coercion     |
+| Git           | `gitpython` 3.2                          | Local clone + diff          |
+| Graph         | `networkx` 3.3                           | Call graph for complexity   |
+| Observability | `opentelemetry‑api`, `prometheus_client` |                             |
+| Messaging     | `confluent‑kafka‑python` or `aio_pika`   |                             |
+| Async runtime | `anyio`                                  | Uniform asyncio/threads     |
+
+*Container image*: `python:3.11‑slim` + `git`, `openssh-client`.
+
+---
+
+## 7  |  Error Handling & Retries
+
+| Failure Point         | Strategy                                  | Max Attempts |
+| --------------------- | ----------------------------------------- | ------------ |
+| **RAG timeout**       | fall back to sparse BM25 only             | 1 retry      |
+| **LLM 5xx**           | exponential back‑off (1 → 4 → 9 s)        | 3            |
+| **Schema validation** | Re‑prompt model with error message        | 2            |
+| **Emit failure**      | Push to `plan.deadletter`; alert Verifier | n/a          |
+
+---
+
+## 8  |  Performance Targets
+
+| Metric             | p50      | p95 |
+| ------------------ | -------- | --- |
+| End‑to‑end latency | 1.2 s    | 3 s |
+| LLM cost (tokens)  | ≤ 4 k    |  —  |
+| Memory (RSS)       | < 600 MB |  —  |
+
+---
+
+## 9  |  Security & Policy
+
+* Strip **secrets**: regex ban‑list (`API_KEY`, `PASSWORD=`, PEM headers) before sending context to LLM.
+* Enforce **read‑only** Git clone; network egress only to RAG and LLM endpoints.
+* **License tag** from RAG payload preserved into Plan so downstream patch generation can respect GPL/BSD constraints.
+
+---
+
+## 10  |  Local Dev & Unit Tests
+
+```bash
+poetry install
+pytest tests/test_planner.py  # 93% branch coverage
+make docker-build
+make e2e REQUEST="Add retry to fetch_data()"
+```
+
+`tests/fixtures/` includes miniature Git repos to validate path extraction and complexity scoring.
+
+---
+
+### Quick‑start Example
+
+```python
+from planner.agent import PlannerAgent
+from proto.requests_pb2 import ChangeRequest
+
+cr = ChangeRequest(
+    id="CR‑42",
+    requester="kil",
+    repo="git@github.com:kil/awesome",
+    branch="main",
+    description_md="Please add exponential back‑off to fetch_data() in client.py"
+)
+
+plan = PlannerAgent().run(cr)
+print(plan.steps[0].goal)
+# ➜ "Add retry decorator to fetch_data() in client.py"
+```
+
+---
+
+**This sheet supplies every connection point, data type, library choice, and operational expectation for the Request‑Planner.**  Implementing it will give your agent loop a deterministic, debuggable front door that transforms vague human change requests into structured, machine‑actionable plans.
+
+[1]: https://arxiv.org/abs/2210.03629?utm_source=chatgpt.com "ReAct: Synergizing Reasoning and Acting in Language Models"
+[2]: https://community.openai.com/t/function-calling-and-chain-of-thought/417259?utm_source=chatgpt.com "Function calling and chain of thought - OpenAI Developer Community"
