@@ -19,6 +19,7 @@ import json
 from ..proto_gen import messages_pb2
 from .models import CommitStatus, CommitResult, CodeContext
 from .context_gatherer import ContextGatherer
+from .context_gatherer_v2 import SmartContextGatherer
 from .patch_generator import PatchGenerator
 from .file_rewriter import FileRewriter
 from .validator import PatchValidator
@@ -40,7 +41,8 @@ class CodingAgent:
         repo_path: str,
         rag_client=None,
         llm_client=None,
-        max_retries: int = 2
+        max_retries: int = 2,
+        use_smart_context: bool = False
     ):
         """
         Initialize the Coding Agent.
@@ -50,14 +52,18 @@ class CodingAgent:
             rag_client: Optional RAG client for context
             llm_client: Optional LLM client for generation
             max_retries: Maximum patch generation retries
+            use_smart_context: Use SmartContextGatherer if True
         """
         self.repo_path = Path(repo_path)
         self.max_retries = max_retries
         self.llm_client = llm_client
         self.rag_client = rag_client
-        
+
         # Initialize components
-        self.context_gatherer = ContextGatherer(repo_path, rag_client)
+        if use_smart_context:
+            self.context_gatherer = SmartContextGatherer(repo_path, rag_client)
+        else:
+            self.context_gatherer = ContextGatherer(repo_path, rag_client)
         self.patch_generator = PatchGenerator(llm_client)
         self.file_rewriter = FileRewriter(llm_client, repo_path)
         self.validator = PatchValidator(repo_path)

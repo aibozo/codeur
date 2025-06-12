@@ -12,6 +12,7 @@ The Coding Agent is responsible for:
 from .agent import CodingAgent
 from .models import CommitStatus, CommitResult, CodeContext, PatchResult, ValidationResult
 from .context_gatherer import ContextGatherer
+from .context_gatherer_v2 import SmartContextGatherer
 from .patch_generator import PatchGenerator
 from .validator import PatchValidator
 from .git_operations import GitOperations
@@ -24,6 +25,7 @@ __all__ = [
     "PatchResult",
     "ValidationResult",
     "ContextGatherer",
+    "SmartContextGatherer",
     "PatchGenerator",
     "PatchValidator",
     "GitOperations"
