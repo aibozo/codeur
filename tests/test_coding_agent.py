@@ -193,7 +193,9 @@ def test_coding_agent_with_rag():
         # Initialize RAG service
         print("\n🔍 Initializing RAG service...")
         rag_dir = test_repo / ".rag"
-        rag_service = RAGService(persist_directory=str(rag_dir))
+        rag_service = RAGService(
+            persist_directory=str(rag_dir), repo_path=str(test_repo)
+        )
         rag_client = RAGClient(service=rag_service)
         
         if rag_client.is_available():

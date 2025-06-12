@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..proto_gen import messages_pb2
 from .models import CodeContext
+from ..core.path_utils import normalize_repo_path
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,11 @@ class SmartContextGatherer:
         self.repo_path = Path(repo_path)
         self.rag_client = rag_client
         self.rag_enabled = rag_client is not None
-        
+
         logger.info(f"SmartContextGatherer initialized - RAG: {self.rag_enabled}")
+
+    def _norm(self, path: str) -> str:
+        return normalize_repo_path(path, self.repo_path)
     
     def gather_context(
         self, 
@@ -95,10 +99,11 @@ class SmartContextGatherer:
             
             # 2. Get specific file chunks if paths are mentioned
             for file_path in task.paths[:3]:  # Limit to first 3 files
+                norm_path = self._norm(file_path)
                 file_results = self.rag_client.search(
-                    query=f"{task.goal} in {file_path}",
+                    query=f"{task.goal} in {norm_path}",
                     k=3,  # Get top 3 chunks per file
-                    filters={"file_path": file_path}
+                    filters={"file_path": norm_path}
                 )
                 
                 for result in file_results:

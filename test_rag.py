@@ -29,7 +29,7 @@ def test_rag_service():
     
     # Initialize RAG service
     print("1. Initializing RAG service...")
-    rag_service = RAGService(persist_directory=".test_rag")
+    rag_service = RAGService(persist_directory=".test_rag", repo_path=".")
     rag_client = RAGClient(service=rag_service)
     
     # Check if available

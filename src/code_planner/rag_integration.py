@@ -13,6 +13,7 @@ from pathlib import Path
 
 from ..rag_service import RAGClient, RAGService
 from ..proto_gen import messages_pb2
+from ..core.path_utils import normalize_repo_path
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,17 @@ class CodePlannerRAGIntegration:
         
         if rag_client:
             self.rag_client = rag_client
+            try:
+                self.enabled = self.rag_client.is_available()
+            except Exception:
+                self.enabled = False
         else:
             # Create RAG client with repo-specific persistence
             try:
                 rag_dir = self.repo_path / ".rag"
-                rag_service = RAGService(persist_directory=str(rag_dir))
+                rag_service = RAGService(
+                    persist_directory=str(rag_dir), repo_path=str(self.repo_path)
+                )
                 self.rag_client = RAGClient(service=rag_service)
                 
                 # Check if available
@@ -55,6 +62,10 @@ class CodePlannerRAGIntegration:
                 logger.error(f"Failed to initialize RAG integration: {e}")
                 self.rag_client = None
                 self.enabled = False
+
+    def _norm(self, path: str) -> str:
+        """Normalize a path relative to the repository."""
+        return normalize_repo_path(path, self.repo_path)
     
     def prefetch_blobs_for_step(
         self, 
@@ -87,8 +98,8 @@ class CodePlannerRAGIntegration:
             # Add file filters if we have affected files
             filters = {}
             if affected_files:
-                # Create a filter for affected files
-                filters["file_path"] = {"$in": affected_files}
+                norm_files = [self._norm(p) for p in affected_files]
+                filters["file_path"] = {"$in": norm_files}
             
             # Search for relevant code
             results = self.rag_client.search(
@@ -136,7 +147,8 @@ class CodePlannerRAGIntegration:
             # Add file filters
             filters = {}
             if task.paths:
-                filters["file_path"] = {"$in": list(task.paths)}
+                norm_paths = [self._norm(p) for p in task.paths]
+                filters["file_path"] = {"$in": norm_paths}
             
             # Get context
             context = self.rag_client.get_context(
