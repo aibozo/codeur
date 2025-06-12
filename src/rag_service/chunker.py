@@ -115,8 +115,8 @@ class CodeChunker:
                 groups = match.groups()
                 symbol_name = None
                 for g in groups:
-                    if g and g not in ['async', 'const', 'function', ':']:
-                        symbol_name = g
+                    if g and g.strip() and g.strip() not in ['async', 'const', 'function', ':']:
+                        symbol_name = g.strip()
                         break
                 
                 boundaries.append({
