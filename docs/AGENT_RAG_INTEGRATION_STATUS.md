@@ -35,11 +35,11 @@ We've been implementing RAG (Retrieval-Augmented Generation) service integration
   - Automatic repository indexing
 
 ### 🚧 Coding Agent RAG Integration
-- **Status**: Structure created, core components implemented
+- **Status**: In progress, smart context gathering available
 - **Implementation**: `src/coding_agent/`
 - **Completed**:
   - Models and data structures
-  - Context gatherer with RAG integration
+  - Basic and smart context gatherers
   - Git operations wrapper
   - Patch validator
 - **TODO**:
