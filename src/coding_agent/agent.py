@@ -365,6 +365,9 @@ Example:
                 temperature=0.1
             )
             
+            if isinstance(response, dict):
+                response = [response]
+
             if isinstance(response, list):
                 # Execute the requested tool calls
                 for tool_call in response[:5]:  # Limit to 5 calls
