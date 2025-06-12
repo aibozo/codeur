@@ -34,7 +34,8 @@ class RAGService:
                  persist_directory: Optional[str] = None,
                  embedding_model: str = "text-embedding-3-small",
                  chunk_size: int = 1500,
-                 chunk_overlap: int = 200):
+                 chunk_overlap: int = 200,
+                 repo_path: Optional[str] = None):
         """
         Initialize the RAG service.
         
@@ -67,6 +68,9 @@ class RAGService:
             vector_store=self.vector_store,
             embedding_service=self.embedding_service
         )
+
+        # Repository root for relative path handling
+        self.repo_path = Path(repo_path).resolve() if repo_path else Path.cwd()
         
         # Track indexed files
         self.indexed_files = set()
@@ -74,7 +78,12 @@ class RAGService:
         
         logger.info("RAG service initialized")
     
-    def index_file(self, file_path: str, content: Optional[str] = None) -> int:
+    def index_file(
+        self,
+        file_path: str,
+        content: Optional[str] = None,
+        repo_root: Optional[str] = None,
+    ) -> int:
         """
         Index a single file.
         
@@ -86,18 +95,26 @@ class RAGService:
             Number of chunks indexed
         """
         try:
+            root = Path(repo_root).resolve() if repo_root else self.repo_path
+            abs_path = Path(file_path).resolve()
+            stored_path = (
+                str(abs_path.relative_to(root))
+                if abs_path.is_relative_to(root)
+                else str(abs_path)
+            )
+
             # Read content if not provided
             if content is None:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(abs_path, "r", encoding="utf-8") as f:
                     content = f.read()
             
             # Delete existing chunks for this file
-            self.vector_store.delete_by_file(file_path)
+            self.vector_store.delete_by_file(stored_path)
             
             # Chunk the file
             chunks = self.chunker.chunk_file(
                 content=content,
-                file_path=file_path
+                file_path=stored_path
             )
             
             if not chunks:
@@ -118,9 +135,9 @@ class RAGService:
             
             # Add to vector store
             added = self.vector_store.add_chunks(chunks)
-            
+
             # Track indexed file
-            self.indexed_files.add(file_path)
+            self.indexed_files.add(stored_path)
             self._save_indexed_files()
             
             logger.info(f"Indexed {added} chunks from {file_path}")
@@ -161,6 +178,8 @@ class RAGService:
                 'build', 'dist', '.pytest_cache', '.mypy_cache'
             ]
         
+        root = directory.resolve()
+
         # Find files to index
         files_to_index = []
         for ext in extensions:
@@ -185,8 +204,13 @@ class RAGService:
             if i % 10 == 0:
                 logger.info(f"Progress: {i}/{len(files_to_index)} files")
             
-            chunks = self.index_file(file_path)
-            results[file_path] = chunks
+            chunks = self.index_file(file_path, repo_root=str(root))
+            rel_path = (
+                str(Path(file_path).resolve().relative_to(root))
+                if Path(file_path).resolve().is_relative_to(root)
+                else str(Path(file_path).resolve())
+            )
+            results[rel_path] = chunks
             total_chunks += chunks
         
         logger.info(f"Indexed {total_chunks} chunks from {len(files_to_index)} files")
@@ -299,7 +323,10 @@ class RAGService:
             Code snippet
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            path = Path(file_path)
+            if not path.is_absolute():
+                path = self.repo_path / path
+            with open(path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             
             # Adjust indices (1-based to 0-based)

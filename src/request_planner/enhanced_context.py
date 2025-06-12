@@ -35,7 +35,9 @@ class EnhancedContextRetriever:
             try:
                 # Create RAG service with repo-specific persistence
                 rag_dir = repo_path / ".rag"
-                rag_service = RAGService(persist_directory=str(rag_dir))
+                rag_service = RAGService(
+                    persist_directory=str(rag_dir), repo_path=str(self.repo_path)
+                )
                 self.rag_client = RAGClient(service=rag_service)
                 
                 # Check if index exists, if not, index the repo

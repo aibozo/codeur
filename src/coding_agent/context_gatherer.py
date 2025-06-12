@@ -15,6 +15,7 @@ import re
 
 from ..rag_service import RAGClient
 from ..proto_gen import messages_pb2
+from ..core.path_utils import normalize_repo_path
 from .models import CodeContext
 
 logger = logging.getLogger(__name__)
@@ -43,18 +44,24 @@ class ContextGatherer:
             try:
                 from ..rag_service import RAGService
                 rag_dir = self.repo_path / ".rag"
-                rag_service = RAGService(persist_directory=str(rag_dir))
+                rag_service = RAGService(
+                    persist_directory=str(rag_dir), repo_path=str(self.repo_path)
+                )
                 self.rag_client = RAGClient(service=rag_service)
                 self.rag_enabled = self.rag_client.is_available()
                 
                 if self.rag_enabled:
                     logger.info("RAG client initialized for context gathering")
                 else:
-                    logger.warning("RAG client created but not available")
+                logger.warning("RAG client created but not available")
             except Exception as e:
                 logger.error(f"Failed to initialize RAG client: {e}")
                 self.rag_client = None
                 self.rag_enabled = False
+
+    def _norm(self, path: str) -> str:
+        """Normalize a path relative to the repository."""
+        return normalize_repo_path(path, self.repo_path)
     
     def gather_context(
         self,
@@ -191,12 +198,13 @@ class ContextGatherer:
         import_pattern = r'^(from\s+\S+\s+import|import\s+)'
         
         for path in paths:
+            norm_path = self._norm(path)
             try:
                 # Use RAG to find imports
                 results = self.rag_client.search(
-                    query=f"import statements in {path}",
+                    query=f"import statements in {norm_path}",
                     k=10,
-                    filters={"file_path": path}
+                    filters={"file_path": norm_path}
                 )
                 
                 # Extract unique imports
