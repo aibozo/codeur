@@ -1,0 +1,15 @@
+{
+  "id": "1234567890",
+  "content": "!agent analyze my-project --complexity --report",
+  "author": {
+    "id": "987654321",
+    "username": "developer",
+    "discriminator": "1234"
+  },
+  "channel": {
+    "id": "111111111",
+    "name": "dev-chat",
+    "type": "text"
+  },
+  "timestamp": "2024-01-20T10:30:00Z"
+}

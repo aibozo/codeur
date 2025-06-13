@@ -6,14 +6,15 @@ operates safely within the project boundaries.
 
 import os
 import sys
+import yaml
 from pathlib import Path
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict, Any
 import fnmatch
 from functools import wraps
 
-from src.core.logging import setup_logging
+from src.core.logging import get_logger
 
-logger = setup_logging(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityException(Exception):
@@ -36,47 +37,18 @@ class SecurityManager:
         """
         self.project_root = project_root.resolve()
         
-        # Default patterns for files that should never be accessed
-        self.forbidden_patterns = [
-            '.env',
-            '.env.*',
-            '*.key',
-            '*.pem',
-            '*.pfx',
-            '*.p12',
-            'id_rsa*',
-            'id_dsa*',
-            'id_ecdsa*',
-            'id_ed25519*',
-            '.ssh/*',
-            '.gnupg/*',
-            '.password*',
-            '.secret*',
-            '*.secret',
-            '*.credentials',
-            '.aws/credentials',
-            '.config/gcloud/*',
-            '.kube/config',
-        ]
+        # Import settings
+        from src.core.settings import get_settings
+        settings = get_settings()
         
-        # Patterns for directories that should be skipped
-        self.excluded_dirs = [
-            '.git',
-            '__pycache__',
-            'node_modules',
-            '.venv',
-            'venv',
-            'env',
-            '.env',
-            '.tox',
-            '.pytest_cache',
-            '.mypy_cache',
-            '.coverage',
-            'htmlcov',
-            'dist',
-            'build',
-            '*.egg-info',
-        ]
+        # Load security config from settings
+        self.forbidden_patterns = settings.security.forbidden_patterns.copy()
+        self.excluded_dirs = settings.security.excluded_dirs.copy()
+        self.enable_symlink_checks = settings.security.enable_symlink_checks
+        self.allowed_symlinks = set(settings.security.allowed_symlinks)
+        
+        # Load additional config from .agent-security.yml if it exists
+        self._load_security_config()
     
     def is_safe_path(self, path: Union[str, Path]) -> bool:
         """Check if a path is safe to access.
@@ -88,8 +60,13 @@ class SecurityManager:
             True if the path is safe, False otherwise
         """
         try:
-            # Convert to Path object and resolve
-            target_path = Path(path).resolve()
+            # Convert to Path object
+            original_path = Path(path)
+            target_path = original_path.resolve()
+            
+            # Check for symlink traversal
+            if self._check_symlink_traversal(original_path, target_path):
+                return False
             
             # Check if path is within project root
             if not self._is_subpath(target_path, self.project_root):
@@ -133,6 +110,87 @@ class SecurityManager:
             return True
         except ValueError:
             return False
+    
+    def _check_symlink_traversal(self, original_path: Path, resolved_path: Path) -> bool:
+        """Check if a path involves unsafe symlink traversal.
+        
+        Args:
+            original_path: The original path before resolution
+            resolved_path: The resolved (absolute) path
+            
+        Returns:
+            True if the path involves unsafe symlink traversal
+        """
+        if not self.enable_symlink_checks:
+            return False
+        
+        # Check each component of the path for symlinks
+        current = self.project_root
+        for part in original_path.parts:
+            if part in ['.', '..']:
+                continue
+                
+            current = current / part
+            
+            try:
+                if current.is_symlink():
+                    # Check if this symlink is allowed
+                    link_target = current.resolve()
+                    
+                    # Allow symlinks that stay within project root
+                    if self._is_subpath(link_target, self.project_root):
+                        continue
+                    
+                    # Check against allowed symlinks
+                    if str(current) in self.allowed_symlinks:
+                        continue
+                    
+                    logger.warning(f"Blocked symlink traversal: {current} -> {link_target}")
+                    return True
+                    
+            except (OSError, RuntimeError):
+                # Handle broken symlinks or permission errors
+                logger.warning(f"Error checking symlink: {current}")
+                return True
+        
+        return False
+    
+    def _load_security_config(self):
+        """Load additional security configuration from .agent-security.yml."""
+        config_path = self.project_root / ".agent-security.yml"
+        
+        if not config_path.exists():
+            return
+        
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            if not isinstance(config, dict):
+                return
+            
+            # Add additional forbidden patterns
+            if 'forbidden_patterns' in config:
+                additional_patterns = config['forbidden_patterns']
+                if isinstance(additional_patterns, list):
+                    self.forbidden_patterns.extend(additional_patterns)
+            
+            # Add additional excluded directories
+            if 'excluded_dirs' in config:
+                additional_dirs = config['excluded_dirs']
+                if isinstance(additional_dirs, list):
+                    self.excluded_dirs.extend(additional_dirs)
+            
+            # Add allowed symlinks
+            if 'allowed_symlinks' in config:
+                allowed = config['allowed_symlinks']
+                if isinstance(allowed, list):
+                    self.allowed_symlinks.update(allowed)
+            
+            logger.info(f"Loaded security config from {config_path}")
+            
+        except Exception as e:
+            logger.error(f"Error loading security config: {e}")
     
     def validate_path(self, path: Union[str, Path]) -> Path:
         """Validate and return a safe path.

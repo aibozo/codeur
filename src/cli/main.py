@@ -13,7 +13,7 @@ from src.core.security import SecurityManager
 from src.core.logging import setup_logging
 
 # Import command modules
-from .commands import status, init, run, analyze, search, clean
+from .commands import status, init, run, analyze, search, clean, webhook
 
 console = Console()
 logger = setup_logging(__name__)
@@ -59,6 +59,7 @@ cli.add_command(run.run)
 cli.add_command(analyze.analyze)
 cli.add_command(search.search)
 cli.add_command(clean.clean)
+cli.add_command(webhook.webhook)
 
 
 def main():

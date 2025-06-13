@@ -1,0 +1,25 @@
+{
+  "action": "opened",
+  "issue": {
+    "id": 123456,
+    "number": 42,
+    "title": "Fix performance issue in data processing",
+    "body": "The data processing module is running slowly.\n\n/agent analyze --performance --suggest-fixes",
+    "labels": [
+      {"name": "bug"},
+      {"name": "agent"}
+    ],
+    "user": {
+      "login": "developer123"
+    },
+    "html_url": "https://github.com/myorg/myrepo/issues/42"
+  },
+  "repository": {
+    "id": 789012,
+    "full_name": "myorg/myrepo",
+    "name": "myrepo",
+    "owner": {
+      "login": "myorg"
+    }
+  }
+}

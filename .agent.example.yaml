@@ -1,0 +1,104 @@
+# Agent System Configuration Example
+# Copy this to .agent.yaml and customize for your needs
+
+# General settings
+debug: false
+project_root: "."
+
+# Security configuration
+security:
+  enable_symlink_checks: true
+  allowed_symlinks: []
+  sandbox_git_operations: true
+  git_sandbox_dir: "/tmp/agent-sandbox"
+  
+  # Additional patterns can be added to the defaults
+  forbidden_patterns:
+    - "*.env"
+    - "*.key"
+    - "*.pem"
+    - ".secrets/*"
+  
+  excluded_dirs:
+    - ".git"
+    - "node_modules"
+    - "__pycache__"
+    - ".venv"
+
+# Cache configuration
+cache:
+  cache_backend: "memory"  # or "redis"
+  redis_url: "redis://localhost:6379"
+  redis_db: 0
+  cache_ttl_seconds: 3600
+  max_memory_cache_items: 10000
+  max_memory_cache_mb: 1024
+  enable_lru_eviction: true
+  lru_check_interval_seconds: 300
+
+# Logging configuration
+logging:
+  log_level: "INFO"
+  console_log_level: "INFO"
+  file_log_level: "DEBUG"
+  log_format: "structured"  # or "text", "json"
+  log_dir: "logs"
+  log_file_name: "agent.log"
+  enable_request_id: true
+  enable_correlation_id: true
+  max_log_size_mb: 100
+  backup_count: 5
+
+# LLM configuration
+llm:
+  # API keys should be set via environment variables
+  # openai_api_key: "sk-..."  # Set via AGENT_LLM_OPENAI_API_KEY
+  # anthropic_api_key: "sk-..."  # Set via AGENT_LLM_ANTHROPIC_API_KEY
+  default_model: "gpt-4"
+  temperature: 0.7
+  max_tokens: 4000
+  request_timeout_seconds: 30
+  max_retries: 3
+  retry_delay_seconds: 1.0
+  retry_backoff_factor: 2.0
+
+# RAG configuration
+rag:
+  vector_store_type: "qdrant"
+  qdrant_url: "http://localhost:6333"
+  qdrant_collection: "code_chunks"
+  embedding_model: "text-embedding-ada-002"
+  embedding_batch_size: 100
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# Messaging configuration
+messaging:
+  messaging_backend: "memory"  # or "kafka", "redis"
+  kafka_bootstrap_servers: "localhost:9092"
+  kafka_topic_prefix: "agent"
+  max_queue_size: 1000
+  consumer_timeout_ms: 1000
+
+# Webhook configuration
+webhook:
+  enabled: false  # Set to true to enable webhooks
+  host: "0.0.0.0"
+  port: 8080
+  
+  # Authentication
+  auth_enabled: true
+  auth_tokens: []  # Set via AGENT_WEBHOOK_AUTH_TOKENS=["token1", "token2"]
+  # secret_key: ""  # Set via AGENT_WEBHOOK_SECRET_KEY for signature verification
+  
+  # Rate limiting
+  rate_limit_enabled: true
+  rate_limit_requests: 100
+  rate_limit_window_seconds: 60
+  
+  # Project mappings
+  project_mappings: {}
+    # Examples:
+    # "my-discord-project": "/path/to/project"
+    # "myorg/myrepo": "/path/to/repo"
+    # "slack-workspace": "/path/to/workspace/projects"
