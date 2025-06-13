@@ -1,5 +1,9 @@
 # Codeur - Multi-Agent Code Generation System
 
+#
+#This system is still in development. it should be merged with a working version soon. I had to fix some issues with patch generation and im implementing a react frontend to monitor agent health, interact with the task manager, etc. smoothing them out now. 
+#
+
 A sophisticated multi-agent system for automated code generation, featuring request planning, code planning, implementation, and testing phases orchestrated through a message queue architecture.
 
 ## Overview
