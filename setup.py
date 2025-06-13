@@ -50,13 +50,11 @@ setup(
     entry_points={
         "console_scripts": [
             "agent-system=src.cli:main",
-            "agent-coding=src.agents.coding_agent:main",
-            "agent-planner=src.agents.request_planner:main",
-            "agent-rag=src.rag.service:main",
+            "agent=src.cli:main",  # Shorter alias
         ],
     },
     include_package_data=True,
     package_data={
-        "src": ["proto/*.proto", "web_api/static/*", "web_api/templates/*"],
+        "src": ["proto/*.proto"],
     },
 )

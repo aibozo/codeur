@@ -1,10 +1,10 @@
 #!/bin/bash
-# Quick start script for Agent System
+# Quick start script for Agent System CLI
 
 set -e
 
-echo "🚀 Agent System Quick Start"
-echo "=========================="
+echo "🚀 Agent System CLI Quick Start"
+echo "==============================="
 echo ""
 
 # Check Python version
@@ -16,25 +16,12 @@ if [[ $? -ne 0 ]]; then
 fi
 echo "✅ $python_version"
 
-# Check Node.js version
-echo "📌 Checking Node.js version..."
-node_version=$(node --version 2>&1)
-if [[ $? -ne 0 ]]; then
-    echo "❌ Node.js is not installed. Please install Node.js 16 or higher."
-    exit 1
-fi
-echo "✅ Node.js $node_version"
-
-# Check Docker
-echo "📌 Checking Docker..."
+# Check Docker (optional)
+echo "📌 Checking Docker (optional for Qdrant)..."
 if ! command -v docker &> /dev/null; then
     echo "⚠️  Docker is not installed. Qdrant vector database requires Docker."
-    echo "   You can install Docker from: https://docs.docker.com/get-docker/"
-    read -p "Continue without Docker? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    echo "   The system can work without it but RAG features will be limited."
+    echo "   Install Docker from: https://docs.docker.com/get-docker/"
 else
     echo "✅ Docker is installed"
 fi
@@ -57,14 +44,14 @@ echo "📦 Upgrading pip..."
 pip install --upgrade pip
 
 # Install Python dependencies
-echo "📦 Installing Python dependencies..."
+echo "📦 Installing Agent System..."
 pip install -e .
-echo "✅ Python dependencies installed"
+echo "✅ Agent System installed"
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
     echo ""
-    echo "📝 Creating .env file..."
+    echo "📝 Creating .env file template..."
     cat > .env << EOL
 # API Keys
 ANTHROPIC_API_KEY=your-anthropic-api-key
@@ -85,30 +72,21 @@ AMQP_URL=amqp://guest:guest@localhost:5672/
 EOL
     echo "✅ .env file created"
     echo ""
-    echo "⚠️  IMPORTANT: Edit .env and add your API keys before running the system!"
+    echo "⚠️  IMPORTANT: Edit .env and add your API keys before using the system!"
 else
     echo "✅ .env file already exists"
 fi
 
-# Install frontend dependencies
-if [ -d "frontend" ]; then
-    echo ""
-    echo "📦 Installing frontend dependencies..."
-    cd frontend
-    npm install
-    cd ..
-    echo "✅ Frontend dependencies installed"
-fi
-
-# Make start script executable
-chmod +x start_ui.sh
-
 echo ""
-echo "✨ Setup complete!"
+echo "✨ Installation complete!"
+echo ""
+echo "The 'agent-system' command is now available in your virtual environment."
 echo ""
 echo "Next steps:"
 echo "1. Edit .env and add your API keys"
-echo "2. Start Docker (if not running)"
-echo "3. Run ./start_ui.sh to start the system"
+echo "2. Activate the virtual environment: source venv/bin/activate"
+echo "3. Navigate to your project: cd /path/to/your/project"
+echo "4. Initialize the project: agent-system init"
+echo "5. Run commands: agent-system run 'your request'"
 echo ""
 echo "For more information, see README.md"

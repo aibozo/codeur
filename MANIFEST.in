@@ -3,15 +3,10 @@ include LICENSE
 include requirements.txt
 include setup.py
 include .env.example
-include start_ui.sh
 include quickstart.sh
 
 # Include all proto files
 recursive-include src/proto *.proto
-
-# Include web API static files
-recursive-include src/web_api/static *
-recursive-include src/web_api/templates *
 
 # Include configuration files
 include pyproject.toml
@@ -30,5 +25,4 @@ recursive-exclude * .ruff_cache
 prune qdrant_storage
 prune .rag
 prune logs
-prune frontend/node_modules
-prune frontend/build
+prune frontend

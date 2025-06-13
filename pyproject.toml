@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "agent"
+name = "agent-system"
 version = "0.1.0"
-description = "Self-healing agent loop system with Request Planner interface"
-authors = ["Agent Team"]
+description = "AI-powered multi-agent code generation CLI"
+authors = ["Agent System Team"]
 readme = "README.md"
 packages = [{include = "src"}]
 
@@ -10,8 +10,8 @@ packages = [{include = "src"}]
 python = "^3.10"
 click = "^8.1.0"
 pydantic = "^2.0"
-fastapi = "^0.100.0"
-uvicorn = "^0.20.0"
+# fastapi = "^0.100.0"  # Optional for API mode
+# uvicorn = "^0.20.0"   # Optional for API mode
 rich = "^13.0.0"
 openai = "^1.0"
 gitpython = "^3.1.0"
@@ -58,4 +58,5 @@ pythonpath = ["."]
 addopts = "-v --cov=src --cov-report=term-missing"
 
 [tool.poetry.scripts]
-agent = "src.request_planner.cli:main"
+agent-system = "src.cli:main"
+agent = "src.cli:main"
