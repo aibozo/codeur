@@ -10,6 +10,9 @@ from typing import Optional, Dict, Any
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Import resilient client for convenience
+from src.core.resilient_llm import ResilientLLMClient
+
 logger = logging.getLogger(__name__)
 
 
