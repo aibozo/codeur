@@ -1,109 +1,87 @@
 """
-Simple message bus implementation for the web API.
-This provides a basic pub/sub mechanism for system events.
+Simple message bus implementation for the Agent System.
+
+This provides basic pub/sub functionality for system events.
 """
 
 from typing import Dict, List, Callable, Any, Type
 import asyncio
 import logging
-from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Message:
+    """Base message class."""
+    timestamp: datetime
+    source: str
+    data: Dict[str, Any]
+
+
 class MessageBus:
-    """
-    Simple in-memory message bus for pub/sub communication.
-    
-    This is a basic implementation to support the web API.
-    For production use, consider using the full messaging system
-    with Kafka or RabbitMQ support from src.messaging.
-    """
+    """Simple message bus for pub/sub communication."""
     
     def __init__(self):
-        self._subscribers: Dict[Type, List[Callable]] = defaultdict(list)
-        self._async_subscribers: Dict[Type, List[Callable]] = defaultdict(list)
+        self._subscribers: Dict[Type, List[Callable]] = {}
+        self._async_subscribers: Dict[Type, List[Callable]] = {}
+        self._lock = asyncio.Lock()
         
     def subscribe(self, message_type: Type, handler: Callable) -> None:
-        """
-        Subscribe to a message type.
-        
-        Args:
-            message_type: The protobuf message class to subscribe to
-            handler: Callback function to handle the message
-        """
+        """Subscribe to a message type with a handler."""
         if asyncio.iscoroutinefunction(handler):
+            if message_type not in self._async_subscribers:
+                self._async_subscribers[message_type] = []
             self._async_subscribers[message_type].append(handler)
         else:
+            if message_type not in self._subscribers:
+                self._subscribers[message_type] = []
             self._subscribers[message_type].append(handler)
-        
-        logger.debug(f"Subscribed handler {handler.__name__} to {message_type.__name__}")
-    
-    def unsubscribe(self, message_type: Type, handler: Callable) -> None:
-        """
-        Unsubscribe from a message type.
-        
-        Args:
-            message_type: The protobuf message class to unsubscribe from
-            handler: The handler to remove
-        """
-        if handler in self._subscribers[message_type]:
-            self._subscribers[message_type].remove(handler)
-        if handler in self._async_subscribers[message_type]:
-            self._async_subscribers[message_type].remove(handler)
             
-        logger.debug(f"Unsubscribed handler {handler.__name__} from {message_type.__name__}")
-    
-    async def publish_async(self, message: Any) -> None:
-        """
-        Publish a message asynchronously.
-        
-        Args:
-            message: The protobuf message to publish
-        """
+    def unsubscribe(self, message_type: Type, handler: Callable) -> None:
+        """Unsubscribe a handler from a message type."""
+        if message_type in self._subscribers:
+            self._subscribers[message_type] = [
+                h for h in self._subscribers[message_type] if h != handler
+            ]
+        if message_type in self._async_subscribers:
+            self._async_subscribers[message_type] = [
+                h for h in self._async_subscribers[message_type] if h != handler
+            ]
+            
+    async def publish(self, message: Any) -> None:
+        """Publish a message to all subscribers."""
         message_type = type(message)
         
-        # Call sync handlers
-        for handler in self._subscribers[message_type]:
-            try:
-                handler(message)
-            except Exception as e:
-                logger.error(f"Error in sync handler {handler.__name__}: {e}")
-        
-        # Call async handlers
-        tasks = []
-        for handler in self._async_subscribers[message_type]:
-            try:
-                tasks.append(asyncio.create_task(handler(message)))
-            except Exception as e:
-                logger.error(f"Error in async handler {handler.__name__}: {e}")
+        # Handle sync subscribers
+        if message_type in self._subscribers:
+            for handler in self._subscribers[message_type]:
+                try:
+                    handler(message)
+                except Exception as e:
+                    logger.error(f"Error in message handler: {e}")
+                    
+        # Handle async subscribers
+        if message_type in self._async_subscribers:
+            tasks = []
+            for handler in self._async_subscribers[message_type]:
+                try:
+                    tasks.append(handler(message))
+                except Exception as e:
+                    logger.error(f"Error in async message handler: {e}")
+                    
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
                 
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-    
-    def publish(self, message: Any) -> None:
-        """
-        Publish a message synchronously.
-        
-        Args:
-            message: The protobuf message to publish
-        """
+    def publish_sync(self, message: Any) -> None:
+        """Synchronous publish for non-async contexts."""
         message_type = type(message)
         
-        for handler in self._subscribers[message_type]:
-            try:
-                handler(message)
-            except Exception as e:
-                logger.error(f"Error in handler {handler.__name__}: {e}")
-        
-        # For async handlers, we need to run them in the event loop
-        if self._async_subscribers[message_type]:
-            logger.warning(
-                f"Async handlers registered for {message_type.__name__} "
-                "but publish() called synchronously. Use publish_async() instead."
-            )
-    
-    def clear(self) -> None:
-        """Clear all subscriptions."""
-        self._subscribers.clear()
-        self._async_subscribers.clear()
+        if message_type in self._subscribers:
+            for handler in self._subscribers[message_type]:
+                try:
+                    handler(message)
+                except Exception as e:
+                    logger.error(f"Error in message handler: {e}")

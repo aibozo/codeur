@@ -1,107 +1,114 @@
 #!/bin/bash
+# Quick start script for Agent System
 
-# Quickstart script for Codeur - Multi-Agent Code Generation System
-# This script sets up the environment and starts the web UI
+set -e
 
-set -e  # Exit on error
-
-echo "======================================"
-echo "Codeur - Multi-Agent Code Generation System"
-echo "Quickstart Installation Script"
-echo "======================================"
-echo
+echo "🚀 Agent System Quick Start"
+echo "=========================="
+echo ""
 
 # Check Python version
-echo "Checking Python version..."
-python_version=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
-required_version="3.11"
-
-if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
-    echo "Error: Python $required_version or higher is required. Found: Python $python_version"
+echo "📌 Checking Python version..."
+python_version=$(python3 --version 2>&1)
+if [[ $? -ne 0 ]]; then
+    echo "❌ Python 3 is not installed. Please install Python 3.8 or higher."
     exit 1
 fi
-echo "✓ Python $python_version found"
+echo "✅ $python_version"
 
-# Check Node.js
-echo "Checking Node.js..."
-if ! command -v node &> /dev/null; then
-    echo "Error: Node.js is not installed. Please install Node.js 16+ from https://nodejs.org/"
+# Check Node.js version
+echo "📌 Checking Node.js version..."
+node_version=$(node --version 2>&1)
+if [[ $? -ne 0 ]]; then
+    echo "❌ Node.js is not installed. Please install Node.js 16 or higher."
     exit 1
 fi
-node_version=$(node --version | grep -oE '[0-9]+' | head -1)
-echo "✓ Node.js v$(node --version) found"
+echo "✅ Node.js $node_version"
+
+# Check Docker
+echo "📌 Checking Docker..."
+if ! command -v docker &> /dev/null; then
+    echo "⚠️  Docker is not installed. Qdrant vector database requires Docker."
+    echo "   You can install Docker from: https://docs.docker.com/get-docker/"
+    read -p "Continue without Docker? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+else
+    echo "✅ Docker is installed"
+fi
 
 # Create virtual environment
-echo
-echo "Creating Python virtual environment..."
+echo ""
+echo "📦 Setting up Python virtual environment..."
 if [ ! -d "venv" ]; then
     python3 -m venv venv
-    echo "✓ Virtual environment created"
+    echo "✅ Virtual environment created"
 else
-    echo "✓ Virtual environment already exists"
+    echo "✅ Virtual environment already exists"
 fi
 
 # Activate virtual environment
-echo "Activating virtual environment..."
 source venv/bin/activate
 
-# Install Python dependencies
-echo
-echo "Installing Python dependencies..."
+# Upgrade pip
+echo "📦 Upgrading pip..."
 pip install --upgrade pip
+
+# Install Python dependencies
+echo "📦 Installing Python dependencies..."
 pip install -e .
-echo "✓ Python dependencies installed"
+echo "✅ Python dependencies installed"
+
+# Create .env file if it doesn't exist
+if [ ! -f ".env" ]; then
+    echo ""
+    echo "📝 Creating .env file..."
+    cat > .env << EOL
+# API Keys
+ANTHROPIC_API_KEY=your-anthropic-api-key
+OPENAI_API_KEY=your-openai-api-key  # Optional
+
+# Model Configuration
+ANTHROPIC_MODEL=claude-3-opus-20240229
+
+# System Configuration
+LOG_LEVEL=INFO
+RAG_COLLECTION_NAME=code_chunks
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+
+# Message Queue (optional)
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+AMQP_URL=amqp://guest:guest@localhost:5672/
+EOL
+    echo "✅ .env file created"
+    echo ""
+    echo "⚠️  IMPORTANT: Edit .env and add your API keys before running the system!"
+else
+    echo "✅ .env file already exists"
+fi
 
 # Install frontend dependencies
-echo
-echo "Installing frontend dependencies..."
-cd frontend
-if [ ! -d "node_modules" ]; then
+if [ -d "frontend" ]; then
+    echo ""
+    echo "📦 Installing frontend dependencies..."
+    cd frontend
     npm install
-else
-    echo "✓ Frontend dependencies already installed"
-fi
-cd ..
-
-# Check for .env file
-echo
-if [ ! -f ".env" ]; then
-    echo "Creating .env file..."
-    cat > .env << EOL
-# OpenAI API key for LLM integration
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Optional: Anthropic API key if using Claude
-# ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Message queue configuration
-MESSAGE_QUEUE_TYPE=memory
-EOL
-    echo "✓ Created .env file"
-    echo
-    echo "⚠️  IMPORTANT: Please edit .env and add your OpenAI API key"
-    echo "   You can get an API key from: https://platform.openai.com/api-keys"
-    echo
-    read -p "Press Enter when you've added your API key to .env..."
+    cd ..
+    echo "✅ Frontend dependencies installed"
 fi
 
 # Make start script executable
 chmod +x start_ui.sh
 
-echo
-echo "======================================"
-echo "✅ Installation Complete!"
-echo "======================================"
-echo
-echo "To start the system, run:"
-echo "  ./start_ui.sh"
-echo
-echo "Or manually:"
-echo "  source venv/bin/activate"
-echo "  python -m src.web_api.app &"
-echo "  cd frontend && npm start"
-echo
-echo "The web UI will be available at:"
-echo "  http://localhost:3000"
-echo
+echo ""
+echo "✨ Setup complete!"
+echo ""
+echo "Next steps:"
+echo "1. Edit .env and add your API keys"
+echo "2. Start Docker (if not running)"
+echo "3. Run ./start_ui.sh to start the system"
+echo ""
 echo "For more information, see README.md"

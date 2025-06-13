@@ -1,325 +1,214 @@
-# Codeur - Multi-Agent Code Generation System
+# Agent System - AI-Powered Code Generation Framework
 
-#
-#This system is still in development. it should be merged with a working version soon. I had to fix some issues with patch generation and im implementing a react frontend to monitor agent health, interact with the task manager, etc. smoothing them out now. 
-#
+A sophisticated multi-agent system for automated code generation, featuring a beautiful web UI for real-time monitoring and interaction.
 
-A sophisticated multi-agent system for automated code generation, featuring request planning, code planning, implementation, and testing phases orchestrated through a message queue architecture.
+## 🚀 Features
 
-## Features
+### Core System
+- **Multi-Agent Architecture**: Specialized agents for request planning, code planning, and code generation
+- **RAG (Retrieval-Augmented Generation)**: Advanced code search with hybrid dense/sparse retrieval using Qdrant
+- **Real-time Monitoring**: WebSocket-based live updates of system status and agent activities
+- **Message Queue Integration**: Support for Kafka and AMQP for distributed processing
+- **Tree-sitter Integration**: Intelligent code parsing and chunking for better context understanding
 
-### Web UI Dashboard
-- **Real-time System Monitoring**: View active agents, task progress, and system metrics
-- **Interactive Chat Interface**: Communicate with the Request Planner agent through a modern chat UI
-- **Task Visualization**: See the flow of tasks through different agents with progress tracking
-- **Agent Network View**: Visualize the connections and communication between agents
-- **System Metrics**: Monitor CPU usage, memory consumption, and queue lengths
+### Web UI
+- **Interactive Dashboard**: Real-time visualization of system metrics, task progress, and agent performance
+- **Request Planner Chat**: Natural language interface for describing coding tasks
+- **System Metrics**: CPU, memory, and queue monitoring with beautiful time-series charts
+- **Agent Network Visualization**: Interactive D3.js force-directed graph showing agent relationships
+- **Dark Theme**: Modern, research-style UI with smooth animations and gradient accents
 
-### Core Agent System
-- **Request Planner**: Main interface that understands user requests and orchestrates the system
-- **Code Planner**: Breaks down high-level plans into concrete coding tasks
-- **Coding Agent**: Generates and applies code changes
-- **Build/CI Runner**: Executes builds and tests
-- **Test Planner**: Designs test specifications
-- **Test Builder**: Implements test code
-- **Verifier**: Monitors results and triggers corrections
-- **RAG Service**: Provides code search and context retrieval with Qdrant vector database
+## 📋 Prerequisites
 
-## Prerequisites
-
-- Python 3.11 or higher
-- Node.js 16+ and npm (for the web UI)
+- Python 3.8+
+- Node.js 16+
+- Docker (for Qdrant vector database)
 - Git
-- Docker and Docker Compose (optional, for running message queues)
-- Unix-like environment (Linux, macOS, or WSL on Windows)
 
-## Installation
+## 🛠️ Installation
 
-### 1. Clone the Repository
+### Quick Start
 
 ```bash
-git clone <repository-url>
-cd agent
+# Clone the repository
+git clone https://github.com/your-username/agent-system.git
+cd agent-system
+
+# Run the quickstart script
+chmod +x quickstart.sh
+./quickstart.sh
 ```
 
-### 2. Install Python Dependencies
+### Manual Installation
 
-#### Using pip (recommended for easy installation)
-
+1. **Set up Python environment**:
 ```bash
-# Create a virtual environment
 python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-# Activate the virtual environment
-# On Linux/macOS:
-source venv/bin/activate
-# On Windows (PowerShell):
-# .\venv\Scripts\Activate.ps1
-
-# Install the package in development mode
+2. **Install Python dependencies**:
+```bash
 pip install -e .
-
-# Or install from requirements.txt
-pip install -r requirements.txt
-```
-
-#### Using Poetry (alternative)
-
-```bash
-# Install Poetry if you haven't already
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Install dependencies
+# Or with Poetry:
 poetry install
-
-# Activate the Poetry shell
-poetry shell
 ```
 
-### 3. Install Frontend Dependencies
-
+3. **Install frontend dependencies**:
 ```bash
-# Navigate to the frontend directory
 cd frontend
-
-# Install npm dependencies
 npm install
-
-# Return to the root directory
 cd ..
 ```
 
-### 4. Set Up Environment Variables
-
-Create a `.env` file in the root directory:
-
+4. **Set up environment variables**:
 ```bash
-# OpenAI API key for LLM integration
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Optional: Anthropic API key if using Claude
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Optional: Message queue configuration
-MESSAGE_QUEUE_TYPE=memory  # Options: memory, kafka, amqp
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+cp .env.example .env
+# Edit .env with your API keys:
+# ANTHROPIC_API_KEY=your-api-key
+# OPENAI_API_KEY=your-api-key (optional)
 ```
 
-### 5. Install Additional Tools (Optional)
-
+5. **Start Qdrant (vector database)**:
 ```bash
-# Install development tools
-pip install black ruff mypy pytest pytest-cov
-
-# Install Docker (for running Kafka/RabbitMQ)
-# Follow instructions at https://docs.docker.com/get-docker/
+docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
 ```
 
-## Quick Start
+## 🚀 Usage
 
 ### Starting the Web UI
 
-The easiest way to start the system is using the provided startup script:
-
 ```bash
-# Make the script executable (first time only)
-chmod +x start_ui.sh
-
-# Start the web UI and backend services
 ./start_ui.sh
 ```
 
 This will:
-1. Start the FastAPI backend server on http://localhost:8000
-2. Start the React frontend on http://localhost:3000
-3. Open your default browser to the UI
+- Start the FastAPI backend on http://localhost:8000
+- Start the React frontend on http://localhost:3001
+- Ensure Qdrant is running
 
-### Manual Start (Alternative)
+### Using the System
 
-If you prefer to start services manually:
+1. **Open the Web UI**: Navigate to http://localhost:3001
 
-```bash
-# Terminal 1: Start the backend API
-cd src/web_api
-python app.py
+2. **Dashboard View**: Monitor real-time system metrics and agent activities
 
-# Terminal 2: Start the frontend
-cd frontend
-npm start
-```
+3. **Request Planner Chat**: 
+   - Click on "Request Planner" in the navigation
+   - Describe your coding task in natural language
+   - The system will break down your request and orchestrate agents to complete it
 
-## Usage
+4. **System Metrics**: View detailed performance metrics and resource usage
 
-### Web UI
+5. **Agent Network**: Visualize how agents interact and process your requests
 
-1. **Dashboard**: View system status, active tasks, and metrics
-2. **Chat Interface**: Type your coding requests in natural language
-3. **Task Monitor**: Track the progress of your requests through the agent pipeline
-4. **Agent Network**: Visualize how agents communicate and collaborate
+### CLI Usage
 
-### Command Line Interface
+For direct agent interaction:
 
 ```bash
-# Request a code change
-python -m src.request_planner.cli request "Add retry logic to the fetch_data function"
+# Run the coding agent
+python -m src.agents.coding_agent --request "Add error handling to the API"
 
-# Check status
-python -m src.request_planner.cli status
-
-# Plan an implementation
-python -m src.code_planner.cli plan "Refactor the authentication module"
-
-# Search the codebase
-python -m src.rag_service.cli search "How does the caching system work?"
+# Run the request planner
+python -m src.agents.request_planner --goal "Build a REST API with authentication"
 ```
 
-### Python API
+## 🔧 Configuration
 
-```python
-from src.request_planner import RequestPlanner
-from src.messaging.factory import create_message_bus
+### Environment Variables
 
-# Initialize the system
-message_bus = create_message_bus("memory")
-planner = RequestPlanner(message_bus=message_bus)
+Create a `.env` file with:
 
-# Process a request
-response = planner.process_request("Add logging to all API endpoints")
-print(response.reasoning)
+```env
+# API Keys
+ANTHROPIC_API_KEY=your-anthropic-api-key
+OPENAI_API_KEY=your-openai-api-key  # Optional
+
+# Model Configuration
+ANTHROPIC_MODEL=claude-3-opus-20240229  # or claude-3-sonnet-20240229
+
+# System Configuration
+LOG_LEVEL=INFO
+RAG_COLLECTION_NAME=code_chunks
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+
+# Message Queue (optional)
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+AMQP_URL=amqp://guest:guest@localhost:5672/
 ```
 
-## Configuration
+### Port Configuration
 
-### Message Queue Options
+Default ports (can be changed in `start_ui.sh`):
+- Backend API: 8000
+- Frontend: 3001
+- Qdrant: 6333
 
-The system supports multiple message queue backends:
-
-1. **In-Memory (Default)**: Good for development and testing
-2. **Kafka**: For production use with high throughput
-3. **RabbitMQ/AMQP**: For reliable message delivery
-
-Configure in `config/messaging.yaml` or via environment variables.
-
-### Starting External Services
-
-```bash
-# Start Kafka (requires Docker)
-docker-compose -f docker-compose-kafka.yml up -d
-
-# Start RabbitMQ (requires Docker)
-docker-compose up -d
-
-# Start Qdrant vector database
-./scripts/start_qdrant.sh
-```
-
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **Port Already in Use**
-   ```bash
-   # Kill processes on port 8000 (backend)
-   lsof -ti:8000 | xargs kill -9
-   
-   # Kill processes on port 3000 (frontend)
-   lsof -ti:3000 | xargs kill -9
-   ```
+1. **Port Conflicts**:
+   - Error: "Address already in use"
+   - Solution: The start script automatically kills processes on required ports
+   - Alternative: Change ports in `start_ui.sh` and `frontend/package.json`
 
-2. **Module Import Errors**
-   ```bash
-   # Ensure you're in the virtual environment
-   which python  # Should show venv path
-   
-   # Reinstall in development mode
-   pip install -e .
-   ```
+2. **Line Ending Issues (WSL/Windows)**:
+   - Error: "/bin/bash^M: bad interpreter"
+   - Solution: Run `sed -i 's/\r$//' start_ui.sh`
 
-3. **Permission Denied on start_ui.sh**
-   ```bash
-   chmod +x start_ui.sh
-   ```
+3. **ModuleNotFoundError**:
+   - Error: "No module named 'src.core.message_bus'"
+   - Solution: Ensure you're running from the project root and have installed with `pip install -e .`
 
-4. **npm Command Not Found**
-   - Install Node.js from https://nodejs.org/
+4. **TypeScript Errors**:
+   - Error: "Could not find a declaration file for module 'react-syntax-highlighter'"
+   - Solution: Run `npm install --save-dev @types/react-syntax-highlighter` in the frontend directory
 
-5. **OpenAI API Key Not Set**
-   - Create a `.env` file with your API key
-   - Or export it: `export OPENAI_API_KEY=your_key_here`
+### Debug Mode
 
-## Development
-
-### Running Tests
-
+Enable detailed logging:
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test file
-pytest tests/test_request_planner.py
-
-# Run integration tests
-pytest tests/integration/
+LOG_LEVEL=DEBUG ./start_ui.sh
 ```
 
-### Code Quality
-
-```bash
-# Format code
-black src tests
-
-# Lint code
-ruff src tests
-
-# Type checking
-mypy src
-```
-
-### Project Structure
+## 🏗️ Architecture
 
 ```
-agent/
-├── frontend/              # React web UI
-│   ├── src/
-│   │   ├── components/   # UI components
-│   │   ├── hooks/        # React hooks
-│   │   └── store/        # State management
-│   └── public/           # Static assets
+agent-system/
 ├── src/
-│   ├── request_planner/  # Main agent interface
-│   ├── code_planner/     # Code planning agent
-│   ├── coding_agent/     # Code generation agent
-│   ├── rag_service/      # RAG/search service
-│   ├── messaging/        # Message queue implementations
-│   ├── web_api/          # FastAPI backend
-│   └── core/             # Shared utilities
-├── tests/                # Test suites
-├── config/               # Configuration files
-├── docs/                 # Documentation
-└── scripts/              # Utility scripts
+│   ├── agents/           # Agent implementations
+│   ├── rag/             # RAG system with Qdrant
+│   ├── tools/           # Code analysis tools
+│   ├── web_api/         # FastAPI backend
+│   └── core/            # Core utilities
+├── frontend/            # React TypeScript UI
+│   ├── src/
+│   │   ├── components/  # UI components
+│   │   ├── store/       # Zustand state management
+│   │   └── App.tsx      # Main application
+│   └── package.json
+├── tests/               # Test suite
+└── start_ui.sh         # Main startup script
 ```
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Run code quality checks (`black`, `ruff`, `mypy`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📄 License
 
-[License details to be added]
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- Built with FastAPI, React, and TypeScript
-- Uses OpenAI GPT models for code generation
-- Vector search powered by Qdrant
-- Message queue options include Kafka and RabbitMQ
+- Built with Anthropic's Claude API
+- UI powered by React, TypeScript, and Tailwind CSS
+- Vector search by Qdrant
+- Code parsing by tree-sitter

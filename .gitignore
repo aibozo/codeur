@@ -87,6 +87,7 @@ dmypy.json
 .rag/
 test_environment/test_repo/.rag/
 test_environment/logs/
+qdrant_storage/
 
 # Protobuf generated files
 src/proto_gen/*_pb2.py
@@ -99,3 +100,14 @@ redis-data/
 # Test outputs
 test_results.json
 *.jsonl
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*

@@ -1,51 +1,34 @@
-# Include documentation
 include README.md
 include LICENSE
 include requirements.txt
+include setup.py
+include .env.example
+include start_ui.sh
+include quickstart.sh
+
+# Include all proto files
+recursive-include src/proto *.proto
+
+# Include web API static files
+recursive-include src/web_api/static *
+recursive-include src/web_api/templates *
 
 # Include configuration files
-recursive-include config *.yaml *.yml
-
-# Include proto files
-recursive-include src *.proto
-
-# Include frontend assets (for development)
-recursive-include frontend/public *
-recursive-include frontend/src *.tsx *.ts *.css *.json
-
-# Include scripts
-recursive-include scripts *.sh *.py
-
-# Include test data
-recursive-include tests *.py *.yaml *.json
-
-# Exclude compiled files and caches
-global-exclude *.pyc
-global-exclude __pycache__
-global-exclude .DS_Store
-global-exclude *.so
-global-exclude *.dylib
-global-exclude *.dll
-
-# Exclude version control
-prune .git
-prune .github
-
-# Exclude development files
-exclude .gitignore
-exclude .pre-commit-config.yaml
-exclude tox.ini
-exclude .coverage
-exclude .pytest_cache
+include pyproject.toml
+include .gitignore
+include .gitattributes
 
 # Exclude build artifacts
-prune build
-prune dist
-prune *.egg-info
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .git
+recursive-exclude * .pytest_cache
+recursive-exclude * .mypy_cache
+recursive-exclude * .ruff_cache
 
-# Exclude node modules
-prune frontend/node_modules
-
-# Exclude local data
+# Exclude data directories
 prune qdrant_storage
+prune .rag
 prune logs
+prune frontend/node_modules
+prune frontend/build
