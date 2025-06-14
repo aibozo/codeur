@@ -1,0 +1,350 @@
+Below is a **complete, minimal‑but‑extensible React/Tailwind starter** that reproduces the visual language in your screenshot — dark UI, glassy cards, soft gradients, rounded edges, neon‑accent typography, and a collapsible sidebar.  Everything is functional, so you can drop it into a fresh `create‑vite` or `create‑react‑app` project and iterate from there.
+
+---
+
+## 1. Project bootstrap
+
+```bash
+# 1. Create a project (Vite is fastest, CRA works too)
+npm create vite@latest stakent-dashboard -- --template react-ts
+cd stakent-dashboard
+
+# 2. Tailwind + dependencies
+npm i -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+
+# 3. Icon set (feather); feel free to swap
+npm i react-feather
+
+# 4. Start dev server
+npm run dev
+```
+
+### `tailwind.config.js`
+
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+      colors: {
+        bg:       '#14151e', // page background
+        surface:  '#1d1f2b', // card/sidepanel surface
+        primary:  '#745bff', // purple accent
+        positive: '#12d97e',
+        negative: '#f25757',
+      },
+      boxShadow: {
+        card: '0 4px 18px rgba(0,0,0,.35)',
+      },
+    },
+  },
+  plugins: [],
+};
+```
+
+### `src/index.css`
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* glassy card effect */
+.card {
+  @apply bg-surface/70 backdrop-blur-md rounded-xl shadow-card;
+}
+/* thin scrollbars for tables & sidebars */
+::-webkit-scrollbar { width: 6px; height: 6px }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 9999px }
+```
+
+---
+
+## 2. Layout skeleton
+
+### `src/App.tsx`
+
+```tsx
+import { useState } from 'react';
+import Sidebar from './components/Sidebar';
+import TopBar  from './components/TopBar';
+import Dashboard from './pages/Dashboard';
+
+export default function App() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="flex h-screen text-gray-200 bg-bg font-sans">
+      <Sidebar collapsed={collapsed} />
+      <main className="flex-1 flex flex-col">
+        <TopBar onToggleSidebar={() => setCollapsed(!collapsed)} />
+        <section className="flex-1 overflow-y-auto p-6">
+          <Dashboard />
+        </section>
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+## 3. Re‑usable building blocks
+
+### `src/components/Sidebar.tsx`
+
+```tsx
+import { Home, PieChart, TrendingUp, Layers } from 'react-feather';
+
+const nav = [
+  { label: 'Dashboard', icon: Home },
+  { label: 'Assets', icon: PieChart },
+  { label: 'Providers', icon: Layers },
+  { label: 'Calculator', icon: TrendingUp },
+];
+
+export default function Sidebar({ collapsed }: { collapsed: boolean }) {
+  return (
+    <aside
+      className={`transition-all bg-surface p-4 ${
+        collapsed ? 'w-16' : 'w-60'
+      }`}
+    >
+      <div className="text-primary font-bold text-xl mb-8 pl-2">Stakent</div>
+
+      <nav className="space-y-2">
+        {nav.map(({ label, icon: Icon }) => (
+          <button
+            key={label}
+            className="flex items-center w-full gap-3 p-2 rounded-md hover:bg-white/5 transition"
+          >
+            <Icon size={20} />
+            {!collapsed && <span className="text-sm">{label}</span>}
+          </button>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+```
+
+### `src/components/TopBar.tsx`
+
+```tsx
+import { Bell, User, Menu } from 'react-feather';
+
+export default function TopBar({
+  onToggleSidebar,
+}: {
+  onToggleSidebar: () => void;
+}) {
+  return (
+    <header className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+      <button onClick={onToggleSidebar} className="md:hidden">
+        <Menu />
+      </button>
+
+      <div className="flex items-center gap-6">
+        <span className="text-sm md:block hidden">
+          Recommended coins&nbsp;•&nbsp;<strong>3 Assets</strong>
+        </span>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <Bell className="cursor-pointer" />
+        <div className="flex items-center gap-2">
+          <User className="bg-white/10 p-1 rounded-full" />
+          <span className="hidden md:block text-sm font-medium">Ryan</span>
+        </div>
+      </div>
+    </header>
+  );
+}
+```
+
+### `src/components/AssetCard.tsx`
+
+```tsx
+interface Props {
+  symbol: string;
+  name: string;
+  rate: number;
+  delta: number;
+  color: 'positive' | 'negative';
+}
+
+export default function AssetCard({ symbol, name, rate, delta, color }: Props) {
+  return (
+    <div className="card w-full md:w-64 p-4 flex flex-col gap-4">
+      <div className="flex justify-between">
+        <div className="flex flex-col">
+          <span className="text-xs uppercase text-gray-400">{symbol}</span>
+          <span className="font-semibold">{name}</span>
+        </div>
+        {/* placeholder icon */}
+        <div className="h-8 w-8 rounded-full bg-primary/20 grid place-items-center">
+          {symbol[0]}
+        </div>
+      </div>
+
+      <div>
+        <span className="text-2xl font-semibold">{rate.toFixed(2)}%</span>
+        <span
+          className={`ml-2 text-sm ${
+            color === 'positive' ? 'text-positive' : 'text-negative'
+          }`}
+        >
+          {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(2)}%
+        </span>
+      </div>
+
+      {/* mini chart placeholder */}
+      <div className="h-12 bg-gradient-to-r from-primary/40 to-primary/0 rounded-md" />
+    </div>
+  );
+}
+```
+
+### `src/components/PromoCard.tsx`
+
+```tsx
+export default function PromoCard() {
+  return (
+    <div className="card p-5 text-center md:w-64">
+      <div className="bg-gradient-to-br from-primary/40 to-primary/10 rounded-lg p-5">
+        <h3 className="font-semibold">Liquid Staking Portfolio</h3>
+        <p className="text-sm mt-2 opacity-70">
+          An all‑in‑one portfolio that helps you make smarter investments into
+          ETH liquid staking.
+        </p>
+        <button className="mt-4 bg-primary/90 hover:bg-primary text-sm py-2 px-4 rounded-md w-full">
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 4. Dashboard page
+
+### `src/pages/Dashboard.tsx`
+
+```tsx
+import AssetCard from '../components/AssetCard';
+import PromoCard from '../components/PromoCard';
+
+const mockAssets = [
+  { symbol: 'ETH', name: 'Ethereum', rate: 13.62, delta: 0.82, color: 'positive' },
+  { symbol: 'BNB', name: 'BNB Chain', rate: 12.72, delta: 0.67, color: 'positive' },
+  { symbol: 'MATIC', name: 'Polygon', rate: 6.29, delta: -1.89, color: 'negative' },
+] as const;
+
+export default function Dashboard() {
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Top cards row */}
+      <div className="flex flex-wrap gap-6">
+        {mockAssets.map((a) => (
+          <AssetCard key={a.symbol} {...a} />
+        ))}
+        <PromoCard />
+      </div>
+
+      {/* Active staking summary */}
+      <div className="card p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Stake Avalance (AVAX)</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Last update • 45 minutes ago
+            </p>
+          </div>
+
+          <div className="flex gap-4 mt-4 md:mt-0">
+            <button className="bg-primary/90 hover:bg-primary py-2 px-4 rounded-md text-sm">
+              Upgrade
+            </button>
+            <button className="bg-white/10 hover:bg-white/20 py-2 px-4 rounded-md text-sm">
+              Unstake
+            </button>
+          </div>
+        </div>
+
+        {/* stats grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8 text-center">
+          <Stat title="Reward Balance" value="31.39686" suffix="AVAX" />
+          <Stat title="24 h Trend" value="-0.82 %" negative />
+          <Stat title="Staking Ratio" value="60.6 %" />
+          <Stat title="Reward Rate" value="2.23 %" positive />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  title,
+  value,
+  suffix,
+  positive,
+  negative,
+}: {
+  title: string;
+  value: string;
+  suffix?: string;
+  positive?: boolean;
+  negative?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-gray-400">{title}</p>
+      <p
+        className={`text-xl font-semibold ${
+          positive ? 'text-positive' : negative ? 'text-negative' : ''
+        }`}
+      >
+        {value} <span className="text-sm opacity-60">{suffix}</span>
+      </p>
+    </div>
+  );
+}
+```
+
+---
+
+## 5. What’s included vs. what to extend
+
+| Ready‑made                                               | Things you’ll still want                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| *Dark mode theme* with polished typography & shadows     | Integrate **real charts** (recharts / apex‑charts) for the mini graphs   |
+| Collapsible **sidebar** & **top bar**                    | Wallet connection logic (`wagmi`, `ethers.js`)                           |
+| Glassy **card components** (promo, asset cards, staking) | Persisted settings / user profile API                                    |
+| **Responsive** layout (wraps at ≤ 768 px)                | State management for staking positions (Zustand, Redux Toolkit, etc.)    |
+| Tailwind tokens for colors & shadows (easy theming)      | Animations (Framer Motion) and route‑level code‑splitting (React Router) |
+
+---
+
+### Tips for pixel‑perfection
+
+* **Gradients & glows**: The original UI uses radial glows (purple to transparent) behind cards. Tailwind’s `before:content-[''] before:absolute before:inset-0 before:bg-gradient-to-br …` utilities make this trivial.
+* **Charts**: ApexCharts’ dark‑theme sparkline charts (`type: 'area', fill: 'gradient', stroke: { curve: 'smooth' }`) will reproduce the thin glowing trend lines.
+* **Blur**: Every card has a subtle backdrop blur; you already have that in the `.card` class, but fine‑tune with `backdrop-blur-[4px]`.
+
+---
+
+## 6. Running the prototype
+
+```bash
+npm run dev
+# open http://localhost:5173
+```
+
+You should see a live dashboard extremely close to the screenshot; tweak spacing, fonts, and data bindings as needed.
+
+> **Next step:** hook up real staking APIs or your own micro‑backend to swap out the mock data, wire LiveCharts, and you’ve got a production‑ready front‑end in the same sleek visual style. 🎉
