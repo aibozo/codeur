@@ -87,7 +87,6 @@ class WebSocketVoiceAgent:
         # State
         self.is_running = False
         self.text_mode = False  # For text input support
-        self.processing_tool = False  # Pause audio during tool calls
         
         logger.info(f"Initialized WebSocket Voice Agent for {self.project_path}")
     
@@ -317,12 +316,16 @@ class WebSocketVoiceAgent:
     async def _handle_tool_call(self, tool_call: Dict[str, Any]) -> Dict[str, Any]:
         """Handle a tool call from the model."""
         tool_name = tool_call.get("name")
-        args = tool_call.get("arguments", {})
+        args = tool_call.get("arguments") or {}
         
         logger.info(f"Tool call: {tool_name} with args: {args}")
         
         try:
             if tool_name == "search_codebase":
+                # Check required args
+                if not args.get("query"):
+                    return {"error": "Missing required argument: query"}
+                    
                 results = await search_codebase_with_graph(
                     query=args.get("query", ""),
                     project_path=self.project_path,
@@ -446,22 +449,24 @@ class WebSocketVoiceAgent:
                 "model": f"models/{self.model}",
                 "generationConfig": {
                     "responseModalities": ["AUDIO"],  # Just audio for now
-                    "temperature": 0.7
+                    "temperature": 0.7,
+                    "speechConfig": {
+                        "voiceConfig": {
+                            "prebuiltVoiceConfig": {
+                                "voiceName": "Aoede"  # Default voice
+                            }
+                        }
+                    }
                 },
                 "systemInstruction": {
                     "parts": [{
-                        "text": f"""You are a helpful voice assistant for a codebase.
+                        "text": f"""You are a helpful voice assistant. Start with a brief greeting and wait for the user to speak.
 
-Project context:
-{self.architecture_context}
+You have tools available to help answer questions about this codebase, but only use them when specifically asked about the code.
 
-You have access to tools to search and read code. When asked about the codebase:
-1. Use search_codebase to find relevant code
-2. Use read_file to examine specific files
-3. Use list_directory to explore structure
+When using tools, don't narrate the process. Just provide the answer naturally.
 
-Provide clear, concise voice responses. When sharing code, describe it clearly.
-For complex code, offer to share it in text format."""
+Project: {self.project_path.name}"""
                     }]
                 },
                 "tools": self.tools
@@ -469,8 +474,9 @@ For complex code, offer to share it in text format."""
         }
         
         await self.ws.send(json.dumps(setup_msg))
-        setup_response = await self.ws.recv()
-        logger.info("Setup complete")
+        # Don't decode the setup response, just like the working example
+        setup_response = await self.ws.recv(decode=False)
+        logger.info(f"Setup complete, response size: {len(setup_response)} bytes")
     
     async def _capture_audio(self):
         """Capture and stream audio from microphone."""
@@ -487,17 +493,17 @@ For complex code, offer to share it in text format."""
         
         try:
             while self.is_running:
-                if not self.text_mode and not self.processing_tool:  # Only capture audio when not in text mode or processing tools
+                if not self.text_mode:  # Only capture audio when not in text mode
                     try:
                         data = await asyncio.to_thread(stream.read, CHUNK_SIZE)
                         
-                        # Use correct message format from specification
+                        # Use the working message format
                         await self.ws.send(json.dumps({
-                            "realtimeInput": {
-                                "audio": {
+                            "realtime_input": {
+                                "media_chunks": [{
                                     "data": base64.b64encode(data).decode(),
-                                    "mimeType": "audio/pcm;rate=16000"
-                                }
+                                    "mime_type": "audio/pcm"
+                                }]
                             }
                         }))
                         
@@ -505,8 +511,8 @@ For complex code, offer to share it in text format."""
                         logger.error(f"Audio capture error: {e}")
                         await asyncio.sleep(0.1)
                 else:
-                    # In text mode or processing tools, just wait
-                    await asyncio.sleep(0.1)
+                    # In text mode, wait briefly
+                    await asyncio.sleep(0.01)  # Much shorter sleep to avoid interruptions
                     
         finally:
             stream.stop_stream()
@@ -527,8 +533,8 @@ For complex code, offer to share it in text format."""
                     print("\n🔧 Tool call requested by model")
                     tool_calls = response["toolCall"].get("functionCalls", [])
                     
-                    # Pause audio capture during tool execution
-                    self.processing_tool = True
+                    # Don't pause audio - let VAD handle it
+                    # self.processing_tool = True
                     
                     function_responses = []
                     for call in tool_calls:
@@ -538,7 +544,10 @@ For complex code, offer to share it in text format."""
                         function_responses.append({
                             "id": call.get("id"),
                             "name": call.get("name"),
-                            "response": result
+                            "response": {
+                                "name": call.get("name"),
+                                "content": result
+                            }
                         })
                     
                     # Send the result back in correct format
@@ -549,8 +558,8 @@ For complex code, offer to share it in text format."""
                         }
                     }))
                     
-                    # Resume audio capture
-                    self.processing_tool = False
+                    # Don't need to resume since we didn't pause
+                    # self.processing_tool = False
                     continue
                 
                 # Handle audio responses
@@ -563,7 +572,12 @@ For complex code, offer to share it in text format."""
                 # Handle text responses
                 try:
                     text = response["serverContent"]["modelTurn"]["parts"][0]["text"]
-                    print(f"\n📝 Assistant: {text}")
+                    # Filter out tool-related narrations
+                    if not any(phrase in text.lower() for phrase in [
+                        "calling", "executing", "tool", "function", "search_codebase",
+                        "read_file", "list_directory", "get_", "using tool"
+                    ]):
+                        print(f"\n📝 Assistant: {text}")
                 except KeyError:
                     pass
                 
@@ -582,6 +596,9 @@ For complex code, offer to share it in text format."""
                     if response.get("serverContent", {}).get("interrupted"):
                         print("\n⚠️  Model was interrupted!")
                         logger.warning("Model generation interrupted")
+                        # Clear audio queue when interrupted
+                        while not self.audio_queue.empty():
+                            self.audio_queue.get_nowait()
                 except KeyError:
                     pass
                     
@@ -610,11 +627,6 @@ For complex code, offer to share it in text format."""
             stream.close()
             audio.terminate()
     
-    async def _handle_text_input(self):
-        """Handle text input when enabled."""
-        # Disabled for now - text input interferes with voice flow
-        while self.is_running:
-            await asyncio.sleep(1)
     
     async def run(self):
         """Run the voice agent."""
@@ -640,8 +652,7 @@ For complex code, offer to share it in text format."""
                 await asyncio.gather(
                     self._capture_audio(),
                     self._handle_responses(),
-                    self._play_audio(),
-                    self._handle_text_input()
+                    self._play_audio()
                 )
             except asyncio.CancelledError:
                 pass
