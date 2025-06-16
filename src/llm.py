@@ -65,21 +65,25 @@ class LLMClient:
             if not api_key:
                 raise ValueError("GOOGLE_API_KEY environment variable not set")
             try:
-                from src.llm_providers.google_provider import GoogleProvider
-                self.client = GoogleProvider(api_key=api_key)
+                from src.llm_providers.google_provider_v2 import GoogleProviderV2
+                self.client = GoogleProviderV2(api_key=api_key)
             except ImportError:
                 raise ImportError(
                     "Google Generative AI library not installed.\n"
                     "Install with: pip install google-generativeai"
                 )
         elif self.model_card.provider == ModelProvider.ANTHROPIC:
-            # TODO: Add Anthropic client initialization
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-            # Placeholder for Anthropic client
-            self.client = None
-            raise NotImplementedError("Anthropic models not yet implemented")
+            try:
+                from src.llm_providers.anthropic_provider import AnthropicProvider
+                self.client = AnthropicProvider(api_key=api_key)
+            except ImportError:
+                raise ImportError(
+                    "Anthropic library not installed.\n"
+                    "Install with: pip install anthropic"
+                )
         
         # Initialize cost tracker
         self.cost_tracker = get_cost_tracker()
@@ -186,21 +190,82 @@ class LLMClient:
                 return result
                 
             elif self.model_card.provider == ModelProvider.GOOGLE:
-                # Use Google provider
-                response = self.client.create_completion(
-                    model_id=self.model,
-                    messages=messages,
+                # Use Google provider V2
+                from src.llm_providers.base import Message as ProviderMessage, GenerationConfig
+                
+                # Convert messages to provider format
+                provider_messages = []
+                for msg in messages:
+                    provider_messages.append(ProviderMessage(
+                        role=msg["role"],
+                        content=msg["content"]
+                    ))
+                
+                # Create config
+                config = GenerationConfig(
                     temperature=temperature,
                     max_tokens=max_tokens,
                     **kwargs
                 )
                 
-                result = response["content"]
+                # Generate response
+                response = self.client.generate(
+                    messages=provider_messages,
+                    model=self.model,
+                    config=config
+                )
+                
+                result = response.content
                 
                 # Use actual token counts if available
-                if "usage" in response:
-                    input_tokens = response["usage"]["prompt_tokens"]
-                    output_tokens = response["usage"]["completion_tokens"]
+                if response.usage:
+                    input_tokens = response.usage.get('prompt_tokens', input_tokens)
+                    output_tokens = response.usage.get('completion_tokens', self.count_tokens(result))
+                else:
+                    output_tokens = self.count_tokens(result)
+                
+                # Track cost
+                self.cost_tracker.track_usage(
+                    agent_name=self.agent_name,
+                    model_name=self.model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens
+                )
+                
+                return result
+                
+            elif self.model_card.provider == ModelProvider.ANTHROPIC:
+                # Use Anthropic provider
+                from src.llm_providers.base import Message as ProviderMessage, GenerationConfig
+                
+                # Convert messages to provider format
+                provider_messages = []
+                for msg in messages:
+                    provider_messages.append(ProviderMessage(
+                        role=msg["role"],
+                        content=msg["content"]
+                    ))
+                
+                # Create config with Claude's requirements
+                config = GenerationConfig(
+                    temperature=temperature,
+                    max_tokens=max_tokens if max_tokens else self.model_card.max_output_tokens,  # Claude requires max_tokens
+                    **kwargs
+                )
+                
+                # Generate response
+                response = self.client.generate(
+                    messages=provider_messages,
+                    model=self.model,
+                    config=config
+                )
+                
+                result = response.content
+                
+                # Use actual token counts if available
+                if response.usage:
+                    input_tokens = response.usage.get('prompt_tokens', input_tokens)
+                    output_tokens = response.usage.get('completion_tokens', self.count_tokens(result))
                 else:
                     output_tokens = self.count_tokens(result)
                 

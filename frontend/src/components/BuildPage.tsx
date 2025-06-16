@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FolderOpen, Send, Bot, FileCode, CheckCircle, Clock, AlertCircle, GitBranch, Building } from 'lucide-react';
+import { Folder, FolderOpen, Send, Bot, FileCode, CheckCircle, Clock, AlertCircle, GitBranch, Building, Mic, MicOff, Volume2 } from 'lucide-react';
 import DirectoryBrowser from './DirectoryBrowser';
 import TaskGraph from './TaskGraph';
 import ArchitectureDiagram from './ArchitectureDiagram';
@@ -45,6 +45,10 @@ const BuildPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDirectoryBrowser, setShowDirectoryBrowser] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   // Check project status on mount and periodically
   useEffect(() => {
@@ -59,6 +63,44 @@ const BuildPage: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [projectStatus]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = 'en-US';
+      
+      recognitionInstance.onresult = (event: any) => {
+        let finalTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          setInputMessage(finalTranscript);
+        }
+      };
+      
+      recognitionInstance.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+      
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+      
+      setRecognition(recognitionInstance);
+    }
+  }, []);
 
   const checkProjectStatus = async () => {
     try {
@@ -128,11 +170,12 @@ const BuildPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Call architect API
+      // Call architect API with voice mode flag
       const response = await api.chatWithArchitect(
         inputMessage,
         projectPath,
-        messages.map(m => ({ role: m.role, content: m.content }))
+        messages.map(m => ({ role: m.role, content: m.content })),
+        voiceMode // Pass voice mode flag
       );
 
       const architectResponse: Message = {
@@ -142,6 +185,11 @@ const BuildPage: React.FC = () => {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, architectResponse]);
+
+      // If voice mode is enabled and we have TTS audio
+      if (voiceMode && response.audio_url) {
+        playAudioResponse(response.audio_url);
+      }
 
       // If a task graph was created, fetch it
       if (response.task_graph_available) {
@@ -184,6 +232,43 @@ const BuildPage: React.FC = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const playAudioResponse = async (audioUrl: string) => {
+    try {
+      setIsSpeaking(true);
+      const audio = new Audio(audioUrl);
+      audio.addEventListener('ended', () => {
+        setIsSpeaking(false);
+      });
+      audio.addEventListener('error', () => {
+        console.error('Audio playback error');
+        setIsSpeaking(false);
+      });
+      await audio.play();
+    } catch (error) {
+      console.error('Failed to play audio:', error);
+      setIsSpeaking(false);
+    }
+  };
+
+  const toggleVoiceInput = () => {
+    if (!recognition) {
+      alert('Speech recognition not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognition.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Failed to start speech recognition:', error);
+      }
     }
   };
 
@@ -319,11 +404,37 @@ const BuildPage: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
         {/* Chat Interface */}
         <div className="bg-slate-800 rounded-xl shadow-lg flex flex-col h-[600px]">
-          <div className="p-4 border-b border-slate-700">
+          <div className="p-4 border-b border-slate-700 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
               <Bot className="w-5 h-5 text-purple-400" />
               Architect Agent Chat
             </h2>
+            <div className="flex items-center gap-3">
+              {isListening && (
+                <div className="flex items-center gap-2 text-red-400">
+                  <Mic className="w-4 h-4 animate-pulse" />
+                  <span className="text-sm">Listening...</span>
+                </div>
+              )}
+              {isSpeaking && (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Volume2 className="w-4 h-4 animate-pulse" />
+                  <span className="text-sm">Speaking...</span>
+                </div>
+              )}
+              <button
+                onClick={() => setVoiceMode(!voiceMode)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                  voiceMode 
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                }`}
+                title={voiceMode ? 'Disable voice mode' : 'Enable voice mode'}
+              >
+                {voiceMode ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                <span className="text-sm font-medium">Voice Mode</span>
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -373,12 +484,25 @@ const BuildPage: React.FC = () => {
           {/* Input */}
           <div className="p-4 border-t border-slate-700">
             <div className="flex gap-2">
+              {voiceMode && recognition && (
+                <button
+                  onClick={toggleVoiceInput}
+                  className={`p-2 rounded-lg transition-all duration-150 ${
+                    isListening 
+                      ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse' 
+                      : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                  }`}
+                  title={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+              )}
               <input
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Describe what you want to build..."
+                placeholder={isListening ? "Listening..." : "Describe what you want to build..."}
                 className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-purple-500 focus:outline-none"
               />
               <button

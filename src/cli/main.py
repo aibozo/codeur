@@ -72,7 +72,6 @@ cli.add_command(metrics.metrics)
 cli.add_command(cost.cost)
 cli.add_command(config.config)
 cli.add_command(voice.voice)
-cli.add_command(voice.ask)  # Add 'ask' alias
 
 
 def main():

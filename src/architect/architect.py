@@ -33,15 +33,16 @@ except ImportError:
     RAGClient = None
     RAG_AVAILABLE = False
 
+logger = get_logger(__name__)
+
 # Optional import for LLM
 try:
     from src.llm import LLMClient
     LLM_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     LLM_AVAILABLE = False
     LLMClient = None
-
-logger = get_logger(__name__)
+    logger.warning(f"LLMClient import failed: {e}")
 
 
 class Architect:
@@ -100,18 +101,20 @@ class Architect:
         # Initialize LLM client if available and not provided
         if llm_client:
             self.llm_client = llm_client
+            logger.info("Using provided LLM client")
         elif LLM_AVAILABLE:
             try:
                 # Use the new LLMClient with model card system
                 model = os.getenv("ARCHITECT_MODEL")
+                logger.info(f"Initializing LLM client with model: {model}")
                 self.llm_client = LLMClient(model=model, agent_name="architect")
                 logger.info(f"Architect using model: {self.llm_client.model_card.display_name}")
             except Exception as e:
-                logger.warning(f"Failed to initialize LLM client: {e}")
+                logger.error(f"Failed to initialize LLM client: {e}", exc_info=True)
                 self.llm_client = None
         else:
             self.llm_client = None
-            logger.warning("Architect running without LLM - using mock responses")
+            logger.warning(f"Architect running without LLM - LLM_AVAILABLE={LLM_AVAILABLE}")
         
         logger.info(f"Architect initialized for project: {self.project_path}")
         
@@ -129,8 +132,7 @@ class Architect:
             logger.info("Indexing project for RAG...")
             results = self.rag_client.index_directory(
                 directory=str(self.project_path),
-                extensions=[".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".cpp", ".c", ".h", ".hpp"],
-                exclude_patterns=["**/node_modules/**", "**/.venv/**", "**/__pycache__/**", "**/.git/**"]
+                extensions=[".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".cpp", ".c", ".h", ".hpp"]
             )
             logger.info(f"Indexed {results.get('files_indexed', 0)} files with {results.get('chunks_created', 0)} chunks")
         except Exception as e:
@@ -220,6 +222,26 @@ class Architect:
             )
         
         return analysis
+    
+    def _get_mock_analysis(self, requirements: str) -> Dict[str, Any]:
+        """Generate a mock analysis when LLM is not available."""
+        return {
+            "project_name": "Agent Project",
+            "description": "An AI-powered codebase assistant",
+            "key_features": [
+                "Code analysis and understanding",
+                "Automated task execution",
+                "Natural language interaction"
+            ],
+            "technical_requirements": [
+                "Python 3.10+",
+                "Async/await support",
+                "API integrations"
+            ],
+            "suggested_phases": ["Design", "Implementation", "Testing", "Deployment"],
+            "complexity": "medium",
+            "estimated_effort": "2-4 weeks"
+        }
     
     async def design_architecture(
         self,

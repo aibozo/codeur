@@ -458,6 +458,10 @@ class WebSocketVoiceAgent:
                         }
                     }
                 },
+                # Prevent interruptions during model speech and tool execution
+                "realtimeInputConfig": {
+                    "activityHandling": "NO_INTERRUPTION"
+                },
                 "systemInstruction": {
                     "parts": [{
                         "text": f"""You are a helpful voice assistant. Start with a brief greeting and wait for the user to speak.

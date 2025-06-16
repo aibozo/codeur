@@ -122,41 +122,10 @@ MODEL_CARDS: Dict[str, ModelCard] = {
         supports_tools=True,
         supports_json_mode=True
     ),
-    
-    "o1-pro": ModelCard(
-        provider=ModelProvider.OPENAI,
-        model_id="o1-pro",  # Placeholder - actual API name TBD
-        display_name="OpenAI o1-pro",
-        input_price=150.00,
-        output_price=600.00,
-        context_window=128_000,
-        max_output_tokens=32_768,
-        features=["ultra-premium", "complex agentic workflows"],
-        supports_tools=True,
-        supports_json_mode=True
-    ),
-    
-    # Google Models
-    "gemini-2.5-pro": ModelCard(
-        provider=ModelProvider.GOOGLE,
-        model_id="gemini-2.5-pro",  # Placeholder - actual API name TBD
-        display_name="Gemini 2.5 Pro",
-        input_price=2.50,  # Varies 1.25-2.50 based on prompt size
-        output_price=10.00,  # Varies 10.00-15.00
-        context_window=2_000_000,
-        max_output_tokens=8_192,
-        features=["SOTA multimodal", "massive context", "reasoning"],
-        additional_costs={
-            "grounding_search": "$35/1k requests"
-        },
-        supports_vision=True,
-        supports_tools=True,
-        supports_json_mode=True
-    ),
-    
+
     "gemini-2.5-flash": ModelCard(
         provider=ModelProvider.GOOGLE,
-        model_id="gemini-1.5-flash",  # Current API name for Gemini 1.5 Flash
+        model_id="gemini-2.5-flash-preview-05-20",  # API name without models/ prefix
         display_name="Gemini 2.5 Flash",
         input_price=0.15,
         output_price=0.60,  # Non-thinking mode; thinking mode is $3.50
@@ -166,6 +135,66 @@ MODEL_CARDS: Dict[str, ModelCard] = {
         additional_costs={
             "thinking_mode_output": "$3.50/1M tokens"
         },
+        supports_vision=True,
+        supports_tools=True,
+        supports_json_mode=True
+    ),
+    
+    # Add mappings for all Gemini 2.5 preview model IDs
+    "gemini-2.5-flash-preview-05-20": ModelCard(
+        provider=ModelProvider.GOOGLE,
+        model_id="gemini-2.5-flash-preview-05-20",
+        display_name="Gemini 2.5 Flash",
+        input_price=0.15,
+        output_price=0.60,
+        context_window=1_000_000,
+        max_output_tokens=8_192,
+        features=["fast", "efficient", "thinking mode"],
+        additional_costs={
+            "thinking_mode_output": "$3.50/1M tokens"
+        },
+        supports_vision=True,
+        supports_tools=True,
+        supports_json_mode=True
+    ),
+    
+    "gemini-2.5-flash-preview-04-17": ModelCard(
+        provider=ModelProvider.GOOGLE,
+        model_id="gemini-2.5-flash-preview-04-17",
+        display_name="Gemini 2.5 Flash (04-17)",
+        input_price=0.15,
+        output_price=0.60,
+        context_window=1_000_000,
+        max_output_tokens=8_192,
+        features=["fast", "efficient", "thinking mode"],
+        supports_vision=True,
+        supports_tools=True,
+        supports_json_mode=True
+    ),
+    
+    "gemini-2.5-pro-preview-05-06": ModelCard(
+        provider=ModelProvider.GOOGLE,
+        model_id="gemini-2.5-pro-preview-05-06",
+        display_name="Gemini 2.5 Pro (05-06)",
+        input_price=2.50,
+        output_price=10.00,
+        context_window=2_000_000,
+        max_output_tokens=8_192,
+        features=["SOTA multimodal", "massive context", "reasoning"],
+        supports_vision=True,
+        supports_tools=True,
+        supports_json_mode=True
+    ),
+    
+    "gemini-2.5-pro-preview-06-05": ModelCard(
+        provider=ModelProvider.GOOGLE,
+        model_id="gemini-2.5-pro-preview-06-05",
+        display_name="Gemini 2.5 Pro (06-05)",
+        input_price=2.50,
+        output_price=10.00,
+        context_window=2_000_000,
+        max_output_tokens=8_192,
+        features=["SOTA multimodal", "massive context", "reasoning"],
         supports_vision=True,
         supports_tools=True,
         supports_json_mode=True
@@ -260,8 +289,8 @@ MODEL_CARDS: Dict[str, ModelCard] = {
     # Anthropic Models
     "claude-opus-4": ModelCard(
         provider=ModelProvider.ANTHROPIC,
-        model_id="claude-opus-4",  # Placeholder - actual API name TBD
-        display_name="Claude Opus 4",
+        model_id="claude-opus-4-20250514",  # Current Claude 3 Opus model
+        display_name="Claude 4 Opus",
         input_price=15.00,
         output_price=75.00,
         context_window=200_000,
@@ -281,8 +310,8 @@ MODEL_CARDS: Dict[str, ModelCard] = {
     
     "claude-sonnet-4": ModelCard(
         provider=ModelProvider.ANTHROPIC,
-        model_id="claude-sonnet-4",  # Placeholder - actual API name TBD
-        display_name="Claude Sonnet 4",
+        model_id="claude-sonnet-4-20250514",  # Claude 4 Opus - simplified ID
+        display_name="Claude 4 Opus",
         input_price=3.00,
         output_price=15.00,
         context_window=200_000,
@@ -306,6 +335,11 @@ MODEL_ALIASES = {
     "reasoning": "o3",
     "voice": "gemini-2.5-flash-preview-native-audio-dialog",
     "voice-thinking": "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+    # Add model IDs as aliases for cost tracking
+    "claude-opus-4-20250514": "claude-opus-4",
+    "claude-sonnet-4-20250514": "claude-sonnet-4",
+    "gemini-2.5-flash-preview-05-20": "gemini-2.5-flash",
+    "gemini-2.0-flash-preview-05-13": "gemini-2.0-flash",
 }
 
 

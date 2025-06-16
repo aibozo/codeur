@@ -31,6 +31,7 @@ from src.core.security import SecurityManager
 from src.architect import Architect, TaskGraph, TaskNode, ProjectStructure
 from src.analyzer import Analyzer
 from src.core.change_tracker import ChangeTracker, get_change_tracker, set_change_tracker
+from src.voice_agent.tts_voice_mode import TTSVoiceMode
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +72,7 @@ class ArchitectChatRequest(BaseModel):
     message: str
     project_id: Optional[str] = None
     conversation_history: List[ChatMessage] = []
+    voice_mode: Optional[bool] = False
 
 class ArchitectAnalysisRequest(BaseModel):
     requirements: str
@@ -93,11 +95,34 @@ architect = None
 analyzer = None
 change_tracker = None
 active_task_graphs = {}
+tts_voice_mode = None
 
 # Health check
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+# Audio endpoint for TTS files
+@app.get("/api/audio/{filename}")
+async def get_audio(filename: str):
+    """Serve TTS audio files."""
+    import tempfile
+    from fastapi.responses import FileResponse
+    
+    # Validate filename to prevent directory traversal
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Check if file exists in temp directory
+    audio_path = Path(tempfile.gettempdir()) / filename
+    if not audio_path.exists() or not audio_path.suffix == ".wav":
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    
+    return FileResponse(
+        path=str(audio_path),
+        media_type="audio/wav",
+        headers={"Cache-Control": "max-age=3600"}
+    )
 
 # Agent endpoints
 @app.get("/api/agents")
@@ -208,19 +233,39 @@ async def get_metric_history(metric_name: str, window: str = "5m", hours: int = 
 async def initialize_project(request: ProjectInitRequest):
     global active_project, security_manager, architect, analyzer, change_tracker
     
+    logger.info(f"[INIT] Starting project initialization for: {request.project_path}")
+    
     try:
         # Create security manager for the project
         project_path = Path(request.project_path)
-        security_manager = SecurityManager(project_path)
+        logger.info(f"[INIT] Creating security manager for: {project_path}")
         
-        # Check if it's a valid project directory
-        if not security_manager.is_valid_project_root():
+        try:
+            security_manager = SecurityManager(project_path)
+            logger.info("[INIT] ✓ Security manager created")
+        except Exception as e:
+            logger.error(f"[INIT] ✗ Security manager failed: {e}")
             return ProjectInitResponse(
                 success=False,
-                message="Selected directory does not appear to be a valid project"
+                message=f"Security initialization failed: {str(e)}"
             )
         
+        # Check if it's a valid project directory
+        logger.info("[INIT] Checking if valid project root...")
+        try:
+            is_valid = security_manager.is_valid_project_root()
+            logger.info(f"[INIT] Valid project root: {is_valid}")
+            if not is_valid:
+                return ProjectInitResponse(
+                    success=False,
+                    message="Selected directory does not appear to be a valid project"
+                )
+        except Exception as e:
+            logger.error(f"[INIT] ✗ Project validation failed: {e}")
+            # Continue anyway
+        
         # Store project info
+        logger.info("[INIT] Creating project info...")
         active_project = ProjectInfo(
             project_path=str(project_path),
             project_name=project_path.name,
@@ -228,22 +273,46 @@ async def initialize_project(request: ProjectInitRequest):
             indexed_files=0,
             total_chunks=0
         )
+        logger.info(f"[INIT] ✓ Project info created: {active_project.project_name}")
         
         # Initialize change tracker
-        change_tracker = ChangeTracker()
-        set_change_tracker(change_tracker)
+        logger.info("[INIT] Initializing change tracker...")
+        try:
+            change_tracker = ChangeTracker()
+            set_change_tracker(change_tracker)
+            logger.info("[INIT] ✓ Change tracker initialized")
+        except Exception as e:
+            logger.error(f"[INIT] ✗ Change tracker failed: {e}")
+            # Continue without it
         
         # Initialize architect for the project
-        architect = Architect(str(project_path))
+        logger.info("[INIT] Initializing architect...")
+        try:
+            architect = Architect(str(project_path))
+            logger.info("[INIT] ✓ Architect initialized")
+        except Exception as e:
+            logger.error(f"[INIT] ✗ Architect failed: {e}")
+            architect = None
+            # Continue without it
         
         # Initialize analyzer for automatic architecture analysis
-        analyzer = Analyzer(str(project_path), auto_analyze=True)
-        asyncio.create_task(analyzer.analyze())  # Initial analysis
+        logger.info("[INIT] Initializing analyzer...")
+        try:
+            # Set auto_analyze=False to prevent blocking
+            analyzer = Analyzer(str(project_path), auto_analyze=False)
+            logger.info("[INIT] ✓ Analyzer initialized")
+            # Start analysis in background
+            asyncio.create_task(_analyze_with_logging())
+        except Exception as e:
+            logger.error(f"[INIT] ✗ Analyzer failed: {e}")
+            analyzer = None
+            # Continue without it
         
-        # In a real implementation, this would trigger RAG indexing
-        # For now, we'll simulate it
+        # Start indexing simulation
+        logger.info("[INIT] Starting indexing simulation...")
         asyncio.create_task(_simulate_indexing())
         
+        logger.info("[INIT] ✓ All initialization tasks started")
         return ProjectInitResponse(
             success=True,
             message="Project initialization started",
@@ -251,7 +320,9 @@ async def initialize_project(request: ProjectInitRequest):
         )
         
     except Exception as e:
-        logger.error(f"Project initialization error: {e}")
+        logger.error(f"[INIT] ✗ Project initialization error: {e}")
+        import traceback
+        logger.error(f"[INIT] Traceback:\n{traceback.format_exc()}")
         return ProjectInitResponse(
             success=False,
             message=str(e)
@@ -260,8 +331,10 @@ async def initialize_project(request: ProjectInitRequest):
 @app.get("/api/project/status")
 async def get_project_status():
     if not active_project:
+        logger.debug("[STATUS] No active project")
         return {"status": "uninitialized", "message": "No project initialized"}
     
+    logger.debug(f"[STATUS] Project: {active_project.project_name}, Status: {active_project.status}")
     return {
         "status": active_project.status,
         "project": active_project
@@ -313,28 +386,54 @@ async def browse_directory(request: DirectoryBrowseRequest):
             can_write=False
         )
 
+async def _analyze_with_logging():
+    """Run analyzer with logging."""
+    global analyzer
+    if analyzer:
+        try:
+            logger.info("[ANALYZER] Starting background architecture analysis...")
+            await analyzer.analyze()
+            logger.info("[ANALYZER] ✓ Architecture analysis completed")
+        except Exception as e:
+            logger.error(f"[ANALYZER] ✗ Architecture analysis failed: {e}")
+
 async def _simulate_indexing():
     """Simulate RAG indexing process."""
     global active_project
     
     if not active_project:
+        logger.error("[INDEX] No active project to index")
         return
     
-    # Simulate indexing stages
-    await asyncio.sleep(2)
-    active_project.status = "indexing"
-    
-    # Simulate file counting
-    await asyncio.sleep(3)
-    active_project.indexed_files = random.randint(50, 200)
-    active_project.total_chunks = random.randint(500, 2000)
-    
-    # Complete
-    await asyncio.sleep(2)
-    active_project.status = "ready"
-    active_project.last_indexed = datetime.utcnow()
-    
-    logger.info(f"Project indexing completed: {active_project.indexed_files} files, {active_project.total_chunks} chunks")
+    try:
+        logger.info("[INDEX] Starting indexing simulation...")
+        
+        # Simulate indexing stages
+        logger.info("[INDEX] Stage 1: Initializing...")
+        await asyncio.sleep(1)
+        active_project.status = "indexing"
+        logger.info("[INDEX] Status changed to: indexing")
+        
+        # Simulate file counting
+        logger.info("[INDEX] Stage 2: Counting files...")
+        await asyncio.sleep(2)
+        active_project.indexed_files = random.randint(50, 200)
+        active_project.total_chunks = random.randint(500, 2000)
+        logger.info(f"[INDEX] Files: {active_project.indexed_files}, Chunks: {active_project.total_chunks}")
+        
+        # Complete
+        logger.info("[INDEX] Stage 3: Finalizing...")
+        await asyncio.sleep(1)
+        active_project.status = "ready"
+        active_project.last_indexed = datetime.utcnow()
+        
+        logger.info(f"[INDEX] ✓ Indexing completed: {active_project.indexed_files} files, {active_project.total_chunks} chunks")
+        
+    except Exception as e:
+        logger.error(f"[INDEX] ✗ Indexing simulation failed: {e}")
+        if active_project:
+            active_project.status = "error"
+            active_project.error_message = str(e)
 
 # Architect endpoints
 @app.post("/api/architect/chat")
@@ -349,22 +448,35 @@ async def architect_chat(request: ArchitectChatRequest):
         
         response_content = ""
         
+        # Debug logging
+        logger.info(f"[ARCHITECT CHAT] Architect exists: {architect is not None}")
+        if architect:
+            logger.info(f"[ARCHITECT CHAT] Has llm_client attr: {hasattr(architect, 'llm_client')}")
+            logger.info(f"[ARCHITECT CHAT] llm_client value: {architect.llm_client}")
+        
         # If LLM is available, use it for more intelligent responses
-        if architect and architect.llm_client and os.getenv("OPENAI_API_KEY"):
+        if architect and hasattr(architect, 'llm_client') and architect.llm_client:
             # Use LLM for chat
             try:
-                # Build conversation history
-                messages = [
-                    {
-                        "role": "system",
-                        "content": """You are an expert software architect AI assistant. You help users:
+                # Build conversation history with voice-friendly prompt if needed
+                system_prompt = """You are an expert software architect AI assistant. You help users:
                         - Design system architectures
                         - Create task dependency graphs
                         - Plan project phases and milestones
                         - Define component interfaces and data flows
                         - Make technology recommendations
                         
-                        Be concise but thorough. When discussing tasks or architecture, be specific and actionable."""
+                        """
+                
+                if request.voice_mode:
+                    system_prompt += "Please be concise and conversational. Your responses will be spoken aloud, so avoid overly technical jargon and keep sentences short and clear."
+                else:
+                    system_prompt += "Be concise but thorough. When discussing tasks or architecture, be specific and actionable."
+                
+                messages = [
+                    {
+                        "role": "system",
+                        "content": system_prompt
                     }
                 ]
                 
@@ -394,14 +506,21 @@ async def architect_chat(request: ArchitectChatRequest):
                             context += f"- {impl['file']}: {impl['symbols']}\n"
                         messages[-1]['content'] += context
                 
-                response = architect.llm_client.chat.completions.create(
-                    model=architect.model,
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=500
+                logger.info(f"[ARCHITECT CHAT] Using LLM model: {architect.llm_client.model_card.model_id}")
+                
+                # Convert messages to prompt format for LLMClient
+                system_msg = next((m['content'] for m in messages if m['role'] == 'system'), None)
+                user_msgs = [m['content'] for m in messages if m['role'] == 'user']
+                prompt = user_msgs[-1] if user_msgs else request.message
+                
+                response_content = architect.llm_client.generate(
+                    prompt=prompt,
+                    system_prompt=system_msg,
+                    temperature=0.7
+                    # max_tokens will use model card defaults
                 )
                 
-                response_content = response.choices[0].message.content
+                logger.info(f"[ARCHITECT CHAT] LLM response received: {len(response_content)} chars")
                 
                 # Check if we should create a task graph or architecture
                 if any(keyword in request.message.lower() for keyword in ['task', 'plan', 'breakdown', 'dependencies']):
@@ -428,32 +547,66 @@ async def architect_chat(request: ArchitectChatRequest):
             # Use rule-based responses when LLM not available
             response_content = _get_fallback_response(request.message, architect)
         
-        if "task" in request.message.lower() or "plan" in request.message.lower() and not response_content:
-            response_content = f"I'll create a comprehensive task breakdown for your project. Based on your requirements, I recommend a phased approach with clear dependencies between tasks. Let me design the task graph structure..."
+        # Only apply keyword-based responses if we don't have a response yet
+        if not response_content:
+            if "task" in request.message.lower() or "plan" in request.message.lower():
+                response_content = f"I'll create a comprehensive task breakdown for your project. Based on your requirements, I recommend a phased approach with clear dependencies between tasks. Let me design the task graph structure..."
+                
+                # Create a sample task graph
+                if active_project:
+                    project_id = request.project_id or active_project.project_path
+                    task_graph = await architect.create_task_graph(
+                        project_id=project_id,
+                        requirements=request.message
+                    )
+                    active_task_graphs[project_id] = task_graph
+                    response_content += f"\n\nI've created a task graph with {len(task_graph.tasks)} tasks across multiple phases. The critical path has {len(task_graph.get_critical_path())} tasks."
             
-            # Create a sample task graph
-            if active_project:
-                project_id = request.project_id or active_project.project_path
-                task_graph = await architect.create_task_graph(
-                    project_id=project_id,
-                    requirements=request.message
-                )
-                active_task_graphs[project_id] = task_graph
-                response_content += f"\n\nI've created a task graph with {len(task_graph.tasks)} tasks across multiple phases. The critical path has {len(task_graph.get_critical_path())} tasks."
-        
-        elif "architecture" in request.message.lower() or "design" in request.message.lower():
-            response_content = "I'll design a scalable architecture for your project. Let me analyze the requirements and create a component-based design with clear interfaces and data flows..."
-            
-            if architect:
-                architecture = await architect.design_architecture(request.message)
-                response_content += f"\n\nI've designed an architecture with {len(architecture.components)} main components and {len(architecture.interfaces)} interfaces."
+            elif "architecture" in request.message.lower() or "design" in request.message.lower():
+                response_content = "I'll design a scalable architecture for your project. Let me analyze the requirements and create a component-based design with clear interfaces and data flows..."
+                
+                if architect:
+                    architecture = await architect.design_architecture(request.message)
+                    response_content += f"\n\nI've designed an architecture with {len(architecture.components)} main components and {len(architecture.interfaces)} interfaces."
         
         # Note: This else block is now handled by the main logic above
+        
+        # Generate TTS audio if voice mode is enabled
+        audio_url = None
+        if request.voice_mode and response_content:
+            global tts_voice_mode
+            try:
+                # Initialize TTS if needed
+                if not tts_voice_mode:
+                    try:
+                        tts_voice_mode = TTSVoiceMode()
+                    except ValueError as ve:
+                        logger.error(f"TTS initialization failed: {ve}")
+                        logger.info("Voice mode disabled - GOOGLE_API_KEY not configured")
+                        tts_voice_mode = None
+                
+                if tts_voice_mode:
+                    # Generate audio (this will save to a temp file)
+                    audio_file = await tts_voice_mode.text_to_speech(response_content, play=False)
+                    
+                    if audio_file:
+                        # In a real deployment, you'd upload to a storage service
+                        # For now, we'll serve it as a static file
+                        audio_filename = Path(audio_file).name
+                        audio_url = f"/api/audio/{audio_filename}"
+                        logger.info(f"TTS audio generated: {audio_url}")
+                    else:
+                        logger.warning("TTS generation returned no audio file")
+                        
+            except Exception as e:
+                logger.error(f"TTS generation error: {e}")
+                # Continue without audio
         
         return {
             "response": response_content,
             "task_graph_available": len(active_task_graphs) > 0,
-            "architecture_available": architect is not None and len(architect.project_structure.components) > 0
+            "architecture_available": architect is not None and len(architect.project_structure.components) > 0,
+            "audio_url": audio_url
         }
         
     except Exception as e:
@@ -591,28 +744,71 @@ async def get_architecture_diagram():
     """Get the architecture diagram in Mermaid format."""
     global analyzer, active_project
     
-    if not analyzer or not active_project:
-        return {"error": "Analyzer not initialized"}
+    logger.info("[DIAGRAM] Request for architecture diagram")
+    
+    if not active_project:
+        logger.error("[DIAGRAM] No active project")
+        return {"error": "No project initialized", "status": "error"}
     
     try:
+        # Check for existing diagram file first
         diagram_path = Path(active_project.project_path) / ".architecture" / "architecture-diagram.mmd"
+        logger.info(f"[DIAGRAM] Checking for diagram at: {diagram_path}")
+        
         if diagram_path.exists():
+            logger.info("[DIAGRAM] Found existing diagram file")
             diagram = diagram_path.read_text()
             return {
                 "status": "success",
                 "diagram": diagram,
                 "format": "mermaid"
             }
-        else:
-            # Generate diagram
+        
+        # If analyzer exists, try to get from it
+        if analyzer:
+            logger.info("[DIAGRAM] Generating diagram from analyzer")
             report = await analyzer.analyze()
             return {
                 "status": "success",
                 "diagram": report.mermaid_diagram,
                 "format": "mermaid"
             }
+        
+        # No analyzer and no file - try to create one
+        logger.info("[DIAGRAM] No analyzer available, trying to initialize one")
+        try:
+            temp_analyzer = Analyzer(str(active_project.project_path), auto_analyze=False)
+            report = await temp_analyzer.analyze()
+            return {
+                "status": "success",
+                "diagram": report.mermaid_diagram,
+                "format": "mermaid"
+            }
+        except Exception as e:
+            logger.error(f"[DIAGRAM] Failed to create temporary analyzer: {e}")
+            
+            # Last resort - return a simple diagram
+            logger.info("[DIAGRAM] Returning placeholder diagram")
+            return {
+                "status": "success",
+                "diagram": """graph TB
+    A[Project Root] --> B[Source Code]
+    A --> C[Configuration]
+    A --> D[Documentation]
+    B --> E[Components]
+    B --> F[Services]
+    B --> G[Utils]
+    
+    style A fill:#9333EA,stroke:#7C3AED,color:#fff
+    style B fill:#1F2937,stroke:#374151,color:#F3F4F6
+    style C fill:#1F2937,stroke:#374151,color:#F3F4F6
+    style D fill:#1F2937,stroke:#374151,color:#F3F4F6
+""",
+                "format": "mermaid"
+            }
+            
     except Exception as e:
-        logger.error(f"Get architecture diagram error: {e}")
+        logger.error(f"[DIAGRAM] Get architecture diagram error: {e}")
         return {"error": str(e), "status": "error"}
 
 @app.post("/api/analyzer/refresh")

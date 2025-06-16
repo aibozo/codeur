@@ -12,8 +12,15 @@ from enum import Enum
 from .base import LLMProvider
 from .openai_provider import OpenAIProvider
 from .google_provider_v2 import GoogleProviderV2
-from .anthropic_provider import AnthropicProvider
 from ..core.model_cards import ModelProvider, ModelSelector
+
+# Conditional import for Anthropic
+try:
+    from .anthropic_provider import AnthropicProvider
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    AnthropicProvider = None
+    ANTHROPIC_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +32,11 @@ class ProviderFactory:
     _providers: Dict[ModelProvider, Type[LLMProvider]] = {
         ModelProvider.OPENAI: OpenAIProvider,
         ModelProvider.GOOGLE: GoogleProviderV2,
-        ModelProvider.ANTHROPIC: AnthropicProvider
     }
+    
+    # Add Anthropic if available
+    if ANTHROPIC_AVAILABLE:
+        _providers[ModelProvider.ANTHROPIC] = AnthropicProvider
     
     # Cache for provider instances
     _instances: Dict[ModelProvider, LLMProvider] = {}

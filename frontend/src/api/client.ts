@@ -100,10 +100,11 @@ class ApiClient {
   }
 
   // Architect endpoints
-  async chatWithArchitect(message: string, projectId?: string, conversationHistory?: Array<{role: string; content: string}>): Promise<{
+  async chatWithArchitect(message: string, projectId?: string, conversationHistory?: Array<{role: string; content: string}>, voiceMode?: boolean): Promise<{
     response: string;
     task_graph_available: boolean;
     architecture_available: boolean;
+    audio_url?: string;
     error?: string;
   }> {
     return this.fetch('/architect/chat', {
@@ -111,7 +112,8 @@ class ApiClient {
       body: JSON.stringify({
         message,
         project_id: projectId,
-        conversation_history: conversationHistory || []
+        conversation_history: conversationHistory || [],
+        voice_mode: voiceMode || false
       }),
     });
   }

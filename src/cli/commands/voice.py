@@ -41,7 +41,12 @@ logger = get_logger(__name__)
     default=8192,
     help="Token budget for thinking mode (0-24576)",
 )
-def voice(project_path: Path, thinking: bool, voice: str, thinking_budget: int):
+@click.option(
+    "--tts",
+    is_flag=True,
+    help="Use TTS mode (text input with voice output) instead of Live API",
+)
+def voice(project_path: Path, thinking: bool, voice: str, thinking_budget: int, tts: bool):
     """
     Start voice interaction with the codebase assistant.
     
@@ -64,25 +69,50 @@ def voice(project_path: Path, thinking: bool, voice: str, thinking_budget: int):
         # Custom voice and project
         agent voice -p ./my-project -v Kore
     """
-    click.echo("🎙️  Starting Native Audio Voice Agent...")
-    
-    if thinking:
-        click.echo(f"💭 Thinking mode enabled (budget: {thinking_budget} tokens)")
-    
-    try:
-        # Create simplified voice agent
-        agent = create_simplified_voice_agent(
-            project_path=project_path,
-            thinking_mode=thinking,
-            voice_name=voice
-        )
+    if tts:
+        # Use TTS mode with architect
+        click.echo("🎤 Starting TTS Voice Mode...")
+        click.echo(f"🔊 Voice: {voice}")
         
-        # Run the async voice agent
-        asyncio.run(agent.run())
+        try:
+            from src.voice_agent.tts_voice_mode import VoiceArchitect
+            
+            # Create voice architect
+            voice_architect = VoiceArchitect(
+                project_path=project_path,
+                voice_name=voice
+            )
+            
+            # Run interactive session
+            asyncio.run(voice_architect.run_interactive())
+            
+        except ImportError as e:
+            click.echo(f"❌ Error: Could not import TTS module: {e}")
+            click.echo("Make sure google-genai is installed: pip install google-genai")
+        except Exception as e:
+            click.echo(f"❌ Error: {e}")
+            logger.error(f"TTS voice mode error: {e}")
+    else:
+        # Use Live API mode
+        click.echo("🎙️  Starting Native Audio Voice Agent...")
         
-    except KeyboardInterrupt:
-        click.echo("\n👋 Voice agent stopped.")
-    except Exception as e:
-        logger.error(f"Voice agent error: {e}")
-        click.echo(f"❌ Error: {e}", err=True)
-        raise click.ClickException(str(e))
+        if thinking:
+            click.echo(f"💭 Thinking mode enabled (budget: {thinking_budget} tokens)")
+        
+        try:
+            # Create simplified voice agent
+            agent = create_simplified_voice_agent(
+                project_path=project_path,
+                thinking_mode=thinking,
+                voice_name=voice
+            )
+            
+            # Run the async voice agent
+            asyncio.run(agent.run())
+            
+        except KeyboardInterrupt:
+            click.echo("\n👋 Voice agent stopped.")
+        except Exception as e:
+            logger.error(f"Voice agent error: {e}")
+            click.echo(f"❌ Error: {e}", err=True)
+            raise click.ClickException(str(e))

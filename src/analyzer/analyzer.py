@@ -521,7 +521,7 @@ class Analyzer:
     def _should_analyze_file(self, file_path: Path) -> bool:
         """Check if file should be analyzed."""
         # Skip common directories
-        skip_dirs = {'node_modules', '.git', '.venv', '__pycache__', 'dist', 'build', '.next'}
+        skip_dirs = {'node_modules', '.git', '.venv', 'venv', '__pycache__', 'dist', 'build', '.next', 'env', '.env'}
         if any(skip in str(file_path) for skip in skip_dirs):
             return False
         

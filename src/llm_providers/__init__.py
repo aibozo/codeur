@@ -11,7 +11,14 @@ from .base import LLMProvider, Message, CompletionResponse, GenerationConfig, Re
 from .factory import ProviderFactory
 from .openai_provider import OpenAIProvider
 from .google_provider_v2 import GoogleProviderV2
-from .anthropic_provider import AnthropicProvider
+
+# Conditional import for Anthropic
+try:
+    from .anthropic_provider import AnthropicProvider
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    AnthropicProvider = None
+    ANTHROPIC_AVAILABLE = False
 
 __all__ = [
     "LLMProvider",
@@ -22,5 +29,7 @@ __all__ = [
     "ProviderFactory",
     "OpenAIProvider",
     "GoogleProviderV2",
-    "AnthropicProvider"
 ]
+
+if ANTHROPIC_AVAILABLE:
+    __all__.append("AnthropicProvider")
