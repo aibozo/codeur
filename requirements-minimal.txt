@@ -1,0 +1,15 @@
+# Minimal requirements for quick setup
+click>=8.0.0
+rich>=13.0.0
+pyyaml>=6.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+httpx>=0.25.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+websockets>=12.0
+redis>=5.0.0
+python-dotenv>=1.0.0
+gitpython>=3.1.0
+tenacity>=8.0.0
+pygments>=2.17.0

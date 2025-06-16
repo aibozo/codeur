@@ -37,13 +37,9 @@ class PatchGenerator:
         
         if not self.llm_client:
             try:
-                import sys
-                from pathlib import Path
-                # Add parent directory to path to import llm
-                sys.path.insert(0, str(Path(__file__).parent.parent))
-                from llm import LLMClient
-                self.llm_client = LLMClient()
-                logger.info("Initialized LLM client for patch generation")
+                from src.llm import LLMClient
+                self.llm_client = LLMClient(agent_name="coding")
+                logger.info(f"Initialized LLM client for patch generation: {self.llm_client.model_card.display_name}")
             except Exception as e:
                 logger.error(f"Failed to initialize LLM client: {e}")
                 self.llm_client = None

@@ -259,16 +259,17 @@ class RequestPlanner:
         # TODO: Replace with LLM-based generation
         
         if intent["type"] == "add_feature":
+            feature_name = intent.get('feature', 'requested feature')
             steps.extend([
                 Step(
                     order=1,
-                    goal=f"Implement {intent['feature']} functionality",
+                    goal=f"Implement {feature_name} functionality",
                     kind=StepKind.ADD,
                     hints=["Create new module or extend existing one"]
                 ),
                 Step(
                     order=2,
-                    goal=f"Add tests for {intent['feature']}",
+                    goal=f"Add tests for {feature_name}",
                     kind=StepKind.TEST,
                     hints=["Cover success and error cases"]
                 ),

@@ -28,9 +28,24 @@ class MessageBus:
         self._subscribers: Dict[Type, List[Callable]] = {}
         self._async_subscribers: Dict[Type, List[Callable]] = {}
         self._lock = asyncio.Lock()
+        # Support for wildcard subscriptions (for testing)
+        self._wildcard_subscribers: List[Callable] = []
+        self._async_wildcard_subscribers: List[Callable] = []
         
     def subscribe(self, message_type: Type, handler: Callable) -> None:
         """Subscribe to a message type with a handler."""
+        # Handle wildcard subscription
+        if message_type == "*":
+            if asyncio.iscoroutinefunction(handler):
+                self._async_wildcard_subscribers.append(handler)
+            else:
+                self._wildcard_subscribers.append(handler)
+            # Also add to regular subscribers for compatibility
+            if "*" not in self._subscribers:
+                self._subscribers["*"] = []
+            self._subscribers["*"].append(handler)
+            return
+            
         if asyncio.iscoroutinefunction(handler):
             if message_type not in self._async_subscribers:
                 self._async_subscribers[message_type] = []
@@ -54,6 +69,34 @@ class MessageBus:
     async def publish(self, message: Any) -> None:
         """Publish a message to all subscribers."""
         message_type = type(message)
+        
+        # Handle wildcard subscribers first (for testing)
+        # Extract event type and data if this is a dict-like message
+        if hasattr(message, '__dict__') or isinstance(message, dict):
+            if isinstance(message, dict):
+                event_type = message.get('type', str(message_type))
+                event_data = message.get('data', message)
+            else:
+                event_type = getattr(message, 'type', str(message_type))
+                event_data = getattr(message, 'data', message.__dict__)
+                
+            # Notify wildcard subscribers
+            for handler in self._wildcard_subscribers:
+                try:
+                    handler(event_type, event_data)
+                except Exception as e:
+                    logger.error(f"Error in wildcard handler: {e}")
+                    
+            # Handle async wildcard subscribers
+            wildcard_tasks = []
+            for handler in self._async_wildcard_subscribers:
+                try:
+                    wildcard_tasks.append(handler(event_type, event_data))
+                except Exception as e:
+                    logger.error(f"Error in async wildcard handler: {e}")
+                    
+            if wildcard_tasks:
+                await asyncio.gather(*wildcard_tasks, return_exceptions=True)
         
         # Handle sync subscribers
         if message_type in self._subscribers:

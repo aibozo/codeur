@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="0.892" timestamp="2025-06-15T07:03:29.615861-04:00" hostname="DESKTOP-1P5CD29"><testcase classname="" name="test_e2e_full_integration" time="0.000"><error message="collection failure">ImportError while importing test module '/home/riley/Programming/agent/tests/test_e2e_full_integration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+venv/lib/python3.10/site-packages/_pytest/python.py:497: in importtestmodule
+    mod = import_path(
+venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1050: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1027: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1006: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:688: in _load_unlocked
+    ???
+venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests/test_e2e_full_integration.py:39: in &lt;module&gt;
+    from src.core.agent_factory import IntegratedAgentFactory
+src/core/agent_factory.py:12: in &lt;module&gt;
+    from .integrated_agent_base import AgentContext, IntegratedAgentBase
+src/core/integrated_agent_base.py:16: in &lt;module&gt;
+    from .agent_integration_interfaces import (
+src/core/agent_integration_interfaces.py:13: in &lt;module&gt;
+    from src.architect.models import TaskStatus, TaskPriority
+src/architect/__init__.py:8: in &lt;module&gt;
+    from .architect import Architect
+src/architect/architect.py:23: in &lt;module&gt;
+    from .task_graph_manager import TaskGraphManager, TaskGraphContext
+src/architect/task_graph_manager.py:19: in &lt;module&gt;
+    from .community_detector import CommunityDetector
+src/architect/community_detector.py:16: in &lt;module&gt;
+    from sklearn.feature_extraction.text import TfidfVectorizer
+E   ModuleNotFoundError: No module named 'sklearn'</error></testcase></testsuite></testsuites>

@@ -1,0 +1,94 @@
+{
+  "name": "Voice Agent System",
+  "description": "Natural language voice interface for codebase exploration and Q&A",
+  "overview": "The Voice Agent provides a conversational interface to explore and understand the codebase using voice or text input. It leverages Gemini's native audio capabilities with thinking mode for complex reasoning, and integrates with RAG for semantic code search.",
+  "components": [
+    {
+      "name": "LiveVoiceAgent",
+      "description": "Main voice agent with Gemini Live API integration and tool calling",
+      "file": "src/voice_agent/gemini_live_tools.py",
+      "responsibilities": [
+        "Handle real-time audio streaming",
+        "Process function calls from the model",
+        "Execute codebase exploration tools",
+        "Manage conversation context"
+      ],
+      "dependencies": ["google-genai", "pyaudio", "RAG Service"]
+    },
+    {
+      "name": "GeminiLiveVoiceAgent",
+      "description": "Base implementation for Gemini Live API without tools",
+      "file": "src/voice_agent/gemini_live_interface.py",
+      "responsibilities": [
+        "Basic Live API connection",
+        "Audio I/O handling",
+        "Simple code search via RAG"
+      ]
+    },
+    {
+      "name": "VoiceAgent",
+      "description": "Abstract voice agent with intent detection",
+      "file": "src/voice_agent/voice_agent.py",
+      "responsibilities": [
+        "Intent pattern matching",
+        "Session management",
+        "Audio interface abstraction"
+      ]
+    },
+    {
+      "name": "IntegratedVoiceAgent",
+      "description": "Full integration with task graph system",
+      "file": "src/voice_agent/integrated_voice_agent.py",
+      "responsibilities": [
+        "Multi-agent collaboration",
+        "Task graph creation",
+        "Event-driven coordination"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_code",
+      "description": "Search for code using keywords or patterns",
+      "usage": "Find implementations, functions, or specific code patterns"
+    },
+    {
+      "name": "read_file",
+      "description": "Read contents of specific files",
+      "usage": "Examine code in detail, view specific implementations"
+    },
+    {
+      "name": "get_architecture",
+      "description": "Get system architecture information",
+      "usage": "Understand overall design and component relationships"
+    },
+    {
+      "name": "list_files",
+      "description": "List files in directories",
+      "usage": "Explore project structure and find relevant files"
+    }
+  ],
+  "models": {
+    "primary": "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+    "features": ["native audio", "thinking mode", "function calling", "16kHz input", "24kHz output"],
+    "context_window": 128000,
+    "aliases": ["voice-thinking"]
+  },
+  "integration_points": [
+    {
+      "name": "RAG Service",
+      "type": "optional",
+      "purpose": "Enhanced semantic code search"
+    },
+    {
+      "name": "CLI",
+      "type": "command",
+      "usage": "agent voice --audio-input gemini-live"
+    },
+    {
+      "name": "Environment",
+      "type": "configuration",
+      "variables": ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+    }
+  ]
+}

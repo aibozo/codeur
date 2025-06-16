@@ -53,7 +53,7 @@ class ContextGatherer:
                 if self.rag_enabled:
                     logger.info("RAG client initialized for context gathering")
                 else:
-                logger.warning("RAG client created but not available")
+                    logger.warning("RAG client created but not available")
             except Exception as e:
                 logger.error(f"Failed to initialize RAG client: {e}")
                 self.rag_client = None

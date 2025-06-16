@@ -24,8 +24,9 @@ from tenacity import (
     wait_exponential,
     wait_random_exponential,
     retry_if_exception_type,
-    before_retry,
-    after_retry
+    before_sleep,
+    before_log,
+    after_log
 )
 from openai import (
     APIError,

@@ -18,6 +18,12 @@ var/
 wheels/
 *.egg-info/
 .installed.cfg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
 *.egg
 MANIFEST
 
@@ -114,3 +120,7 @@ frontend/yarn-error.log*
 
 # Test environment
 test_environment/
+
+# Agent system
+.agent-config.yml
+.agent-cache/

@@ -1,0 +1,60 @@
+{
+  "graph": {
+    "project_path": "/home/riley/Programming/agent/test_project",
+    "components": {
+      "app_py": {
+        "id": "app_py",
+        "name": "app",
+        "type": "entry_point",
+        "file_path": "app.py",
+        "module_path": "app",
+        "description": "",
+        "symbols": [
+          "def index"
+        ],
+        "imports": [
+          "flask",
+          "database"
+        ],
+        "exports": [],
+        "metrics": {
+          "lines": 11,
+          "size_bytes": 193
+        },
+        "technologies": [
+          "Flask"
+        ],
+        "patterns": []
+      }
+    },
+    "dependencies": [],
+    "layers": {},
+    "technologies": [
+      "Flask"
+    ],
+    "patterns": [],
+    "entry_points": [
+      "app_py"
+    ],
+    "created_at": "2025-06-14T21:25:25.787550",
+    "updated_at": "2025-06-14T21:25:25.790535",
+    "stats": {
+      "total_components": 1,
+      "total_dependencies": 0,
+      "total_technologies": 1,
+      "total_patterns": 0
+    }
+  },
+  "summary": "Architecture analysis of test_project:\n- 1 components discovered\n- 0 dependencies mapped\n- Technologies: Flask\n- Patterns: ",
+  "insights": [],
+  "warnings": [],
+  "recommendations": [
+    "Consider adopting a clear architectural pattern"
+  ],
+  "metrics": {
+    "total_lines": 11,
+    "avg_component_size": 11.0,
+    "coupling_score": 0.0
+  },
+  "mermaid_diagram": "graph TB\n    app_py{\"app\"}\n\n    %% Styling\n    style app_py fill:#FFEBEE\n"
+}

@@ -1,64 +1,113 @@
-# Makefile for Agent System
+# Makefile for Codeur Agent System
 
-.PHONY: help
-help:  ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+.PHONY: help setup venv install install-dev clean test lint format run-web run-backend run-terminal build-frontend
 
-.PHONY: requirements
-requirements:  ## Compile requirements.txt from requirements.in
-	pip-compile requirements.in -o requirements.txt --resolver=backtracking
+# Default target
+help:
+	@echo "Codeur Agent System - Available Commands:"
+	@echo "========================================="
+	@echo "  make setup        - Complete setup (venv + dependencies)"
+	@echo "  make venv         - Create virtual environment"
+	@echo "  make install      - Install dependencies"
+	@echo "  make install-dev  - Install with dev dependencies"
+	@echo "  make clean        - Clean up generated files"
+	@echo "  make test         - Run tests"
+	@echo "  make lint         - Run linters"
+	@echo "  make format       - Format code"
+	@echo "  make run-web      - Start web dashboard"
+	@echo "  make run-backend  - Start backend only"
+	@echo "  make run-terminal - Start terminal dashboard"
+	@echo "  make build-frontend - Build frontend for production"
 
-.PHONY: dev-requirements
-dev-requirements: requirements  ## Compile dev-requirements.txt from dev-requirements.in
-	pip-compile dev-requirements.in -o dev-requirements.txt --resolver=backtracking
+# Setup everything
+setup: venv install
+	@echo "✅ Setup complete! Run 'source venv/bin/activate' to activate"
 
-.PHONY: upgrade-requirements
-upgrade-requirements:  ## Upgrade all dependencies in requirements.txt
-	pip-compile --upgrade requirements.in -o requirements.txt --resolver=backtracking
+# Create virtual environment
+venv:
+	@echo "Creating virtual environment..."
+	@python3 -m venv venv
+	@echo "✓ Virtual environment created"
 
-.PHONY: upgrade-dev-requirements
-upgrade-dev-requirements: upgrade-requirements  ## Upgrade all dev dependencies
-	pip-compile --upgrade dev-requirements.in -o dev-requirements.txt --resolver=backtracking
+# Install dependencies
+install:
+	@echo "Installing dependencies..."
+	@. venv/bin/activate && pip install --upgrade pip
+	@. venv/bin/activate && pip install -r requirements.txt
+	@. venv/bin/activate && pip install -e .
+	@if [ -d "frontend" ]; then \
+		echo "Installing frontend dependencies..."; \
+		cd frontend && npm install; \
+	fi
+	@echo "✓ Dependencies installed"
 
-.PHONY: sync
-sync:  ## Sync installed packages with requirements.txt
-	pip-sync requirements.txt
+# Install with dev dependencies
+install-dev:
+	@echo "Installing dependencies with dev tools..."
+	@. venv/bin/activate && pip install --upgrade pip
+	@. venv/bin/activate && pip install -r requirements-dev.txt
+	@. venv/bin/activate && pip install -e .
+	@if [ -d "frontend" ]; then \
+		echo "Installing frontend dependencies..."; \
+		cd frontend && npm install; \
+	fi
+	@echo "✓ All dependencies installed"
 
-.PHONY: sync-dev
-sync-dev:  ## Sync installed packages with dev-requirements.txt
-	pip-sync dev-requirements.txt
+# Clean up
+clean:
+	@echo "Cleaning up..."
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
+	@find . -type f -name "*.pyo" -delete
+	@find . -type f -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	@if [ -d "frontend/dist" ]; then rm -rf frontend/dist; fi
+	@if [ -d "frontend/node_modules" ]; then rm -rf frontend/node_modules; fi
+	@echo "✓ Cleaned"
 
-.PHONY: install
-install: requirements sync  ## Install production dependencies
+# Run tests
+test:
+	@echo "Running tests..."
+	@. venv/bin/activate && pytest tests/
 
-.PHONY: install-dev
-install-dev: dev-requirements sync-dev  ## Install all dependencies including dev
+# Run linters
+lint:
+	@echo "Running linters..."
+	@. venv/bin/activate && ruff check src/
+	@. venv/bin/activate && mypy src/
 
-.PHONY: test
-test:  ## Run tests
-	pytest tests/
+# Format code
+format:
+	@echo "Formatting code..."
+	@. venv/bin/activate && black src/ tests/
+	@. venv/bin/activate && isort src/ tests/
 
-.PHONY: test-coverage
-test-coverage:  ## Run tests with coverage
-	pytest tests/ --cov=src --cov-report=html --cov-report=term
+# Run web dashboard
+run-web:
+	@echo "Starting web dashboard..."
+	@. venv/bin/activate && agent web start
 
-.PHONY: lint
-lint:  ## Run linters
-	ruff check src/
-	mypy src/
+# Run backend only
+run-backend:
+	@echo "Starting backend server..."
+	@. venv/bin/activate && AGENT_WEBHOOK_ENABLED=true agent webhook start
 
-.PHONY: format
-format:  ## Format code with black
-	black src/
+# Run terminal dashboard
+run-terminal:
+	@echo "Starting terminal dashboard..."
+	@. venv/bin/activate && agent monitor --dashboard
 
-.PHONY: clean
-clean:  ## Clean up cache and temporary files
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	rm -rf .pytest_cache
-	rm -rf .mypy_cache
-	rm -rf .ruff_cache
-	rm -rf htmlcov
-	rm -rf dist
-	rm -rf *.egg-info
+# Build frontend for production
+build-frontend:
+	@echo "Building frontend..."
+	@cd frontend && npm run build
+	@echo "✓ Frontend built in frontend/dist/"
+
+# Development shortcuts
+dev: install-dev
+	@echo "Development environment ready!"
+
+# Quick start
+start: setup run-web

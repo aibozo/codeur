@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="11" failures="0" skipped="0" tests="11" time="2.811" timestamp="2025-06-15T07:13:42.573034-04:00" hostname="DESKTOP-1P5CD29"><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_simple_feature_request_flow" time="0.070"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_coding_agent_implementation" time="0.001"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_architect_conversation_flow" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_adaptive_rag_integration" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_message_bus_communication" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_analyzer_architecture_detection" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_context_quality_critique" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_task_graph_hierarchy" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_webhook_integration" time="0.000"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestFullE2EIntegration" name="test_full_request_to_commit_flow" time="0.001"><error message="failed on setup with &quot;ValueError: &quot;Settings&quot; object has no field &quot;log_level&quot;&quot;">tests/test_e2e_full_integration.py:235: in env
+    await env.setup()
+tests/test_e2e_full_integration.py:85: in setup
+    self.settings.log_level = "DEBUG"
+venv/lib/python3.10/site-packages/pydantic/main.py:997: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+venv/lib/python3.10/site-packages/pydantic/main.py:1044: in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E   ValueError: "Settings" object has no field "log_level"</error></testcase><testcase classname="test_e2e_full_integration.TestLLMIntegration" name="test_llm_structured_output" time="0.000"><error message="failed on setup with &quot;file /home/riley/Programming/agent/tests/test_e2e_full_integration.py, line 649&#10;      @pytest.mark.asyncio&#10;      async def test_llm_structured_output(self, env, mock_llm_response):&#10;          &quot;&quot;&quot;Test LLM producing structured outputs.&quot;&quot;&quot;&#10;          # This test validates that LLMs properly format responses&#10;          # If API keys are available, it uses real LLM&#10;          # Otherwise uses mock for predictable testing&#10;&#10;          planner = env.agents[&quot;request_planner&quot;]&#10;&#10;          # Simple request that should produce structured plan&#10;          result = await planner.process_request(&quot;Add a modulo operation to calculator&quot;)&#10;&#10;          # Verify structured output&#10;          assert isinstance(result, dict)&#10;          assert &quot;tasks&quot; in result&#10;          assert isinstance(result[&quot;tasks&quot;], list)&#10;&#10;          # Each task should have required fields&#10;          for task in result[&quot;tasks&quot;]:&#10;              assert &quot;id&quot; in task&#10;              assert &quot;type&quot; in task&#10;              assert &quot;description&quot; in task&#10;E       fixture 'env' not found&#10;&gt;       available fixtures: _class_event_loop, _function_event_loop, _module_event_loop, _package_event_loop, _session_event_loop, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, cov, doctest_namespace, event_loop_policy, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, mock_llm_response, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory&#10;&gt;       use 'pytest --fixtures [testpath]' for help on them.&#10;&#10;/home/riley/Programming/agent/tests/test_e2e_full_integration.py:649&quot;">file /home/riley/Programming/agent/tests/test_e2e_full_integration.py, line 649
+      @pytest.mark.asyncio
+      async def test_llm_structured_output(self, env, mock_llm_response):
+          """Test LLM producing structured outputs."""
+          # This test validates that LLMs properly format responses
+          # If API keys are available, it uses real LLM
+          # Otherwise uses mock for predictable testing
+
+          planner = env.agents["request_planner"]
+
+          # Simple request that should produce structured plan
+          result = await planner.process_request("Add a modulo operation to calculator")
+
+          # Verify structured output
+          assert isinstance(result, dict)
+          assert "tasks" in result
+          assert isinstance(result["tasks"], list)
+
+          # Each task should have required fields
+          for task in result["tasks"]:
+              assert "id" in task
+              assert "type" in task
+              assert "description" in task
+E       fixture 'env' not found
+&gt;       available fixtures: _class_event_loop, _function_event_loop, _module_event_loop, _package_event_loop, _session_event_loop, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, cov, doctest_namespace, event_loop_policy, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, mock_llm_response, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory
+&gt;       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/riley/Programming/agent/tests/test_e2e_full_integration.py:649</error></testcase></testsuite></testsuites>

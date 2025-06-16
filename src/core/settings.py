@@ -9,7 +9,8 @@ across the agent system, with support for environment variables,
 import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from pydantic import BaseSettings, Field, validator
+from pydantic_settings import BaseSettings
+from pydantic import Field, validator
 from pydantic.types import SecretStr
 import yaml
 import json
@@ -49,6 +50,7 @@ class SecuritySettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_SECURITY_"
+        extra = "ignore"
 
 
 class CacheSettings(BaseSettings):
@@ -70,6 +72,7 @@ class CacheSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_CACHE_"
+        extra = "ignore"
 
 
 class LoggingSettings(BaseSettings):
@@ -95,6 +98,7 @@ class LoggingSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_LOG_"
+        extra = "ignore"
 
 
 class LLMSettings(BaseSettings):
@@ -117,6 +121,7 @@ class LLMSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_LLM_"
+        extra = "ignore"
 
 
 class RAGSettings(BaseSettings):
@@ -137,6 +142,7 @@ class RAGSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_RAG_"
+        extra = "ignore"
 
 
 class MessagingSettings(BaseSettings):
@@ -155,6 +161,7 @@ class MessagingSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_MESSAGING_"
+        extra = "ignore"
 
 
 class WebhookSettings(BaseSettings):
@@ -163,7 +170,7 @@ class WebhookSettings(BaseSettings):
     # Server settings
     webhook_enabled: bool = Field(False, description="Enable webhook server")
     webhook_host: str = Field("0.0.0.0", description="Webhook server host")
-    webhook_port: int = Field(8080, description="Webhook server port")
+    webhook_port: int = Field(8088, description="Webhook server port")
     
     # Authentication
     webhook_auth_enabled: bool = Field(True, description="Enable webhook authentication")
@@ -183,6 +190,7 @@ class WebhookSettings(BaseSettings):
     
     class Config:
         env_prefix = "AGENT_WEBHOOK_"
+        extra = "ignore"
 
 
 class Settings(BaseSettings):
@@ -205,6 +213,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         env_prefix = "AGENT_"
+        extra = "ignore"  # Ignore extra environment variables
         
     @validator("project_root", pre=True)
     def validate_project_root(cls, v):

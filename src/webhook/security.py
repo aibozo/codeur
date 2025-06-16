@@ -94,8 +94,7 @@ class WebhookSecurity:
                 self.settings.webhook.rate_limit_window_seconds
             )
             
-            # Start cleanup task
-            asyncio.create_task(self.rate_limiter.cleanup())
+            # Cleanup task will be started when event loop is available
     
     async def verify_request(
         self,

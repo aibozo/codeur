@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Bot, Activity, FileText, Settings, LayoutDashboard } from 'lucide-react';
+import { Bot, Activity, FileText, Settings, LayoutDashboard, Hammer } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/build', label: 'Build', icon: Hammer },
   { path: '/agents', label: 'Agents', icon: Bot },
   { path: '/metrics', label: 'Metrics', icon: Activity },
   { path: '/logs', label: 'Logs', icon: FileText },

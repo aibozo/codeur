@@ -1,0 +1,431 @@
+{
+  "project_id": "architect_agent",
+  "current_node_id": "915bedce-4166-43e0-b496-3e56c58a2282",
+  "nodes": {
+    "4c223696-078c-4668-bae1-b83fceb86648": {
+      "id": "4c223696-078c-4668-bae1-b83fceb86648",
+      "timestamp": "2025-06-15T05:38:57.006301",
+      "role": "user",
+      "content": "I want to build a social media dashboard that shows analytics from multiple platforms",
+      "summary": null,
+      "parent_id": null,
+      "children_ids": [
+        "93879265-540d-4c08-93bb-82229d95bbbf"
+      ],
+      "task_ids": [
+        "DASH-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "exploration"
+    },
+    "93879265-540d-4c08-93bb-82229d95bbbf": {
+      "id": "93879265-540d-4c08-93bb-82229d95bbbf",
+      "timestamp": "2025-06-15T05:38:57.339988",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "4c223696-078c-4668-bae1-b83fceb86648",
+      "children_ids": [
+        "66cb3c54-8f48-49ca-a750-021e94ce23d4"
+      ],
+      "task_ids": [
+        "DASH-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "exploration"
+    },
+    "66cb3c54-8f48-49ca-a750-021e94ce23d4": {
+      "id": "66cb3c54-8f48-49ca-a750-021e94ce23d4",
+      "timestamp": "2025-06-15T05:38:57.840908",
+      "role": "user",
+      "content": "It should support Twitter, LinkedIn, and Instagram. What architecture would you recommend?",
+      "summary": null,
+      "parent_id": "93879265-540d-4c08-93bb-82229d95bbbf",
+      "children_ids": [
+        "8d30def3-1a8d-4979-ac6d-dd6ab942bbdd"
+      ],
+      "task_ids": [
+        "DASH-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "exploration"
+    },
+    "8d30def3-1a8d-4979-ac6d-dd6ab942bbdd": {
+      "id": "8d30def3-1a8d-4979-ac6d-dd6ab942bbdd",
+      "timestamp": "2025-06-15T05:38:57.921881",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "66cb3c54-8f48-49ca-a750-021e94ce23d4",
+      "children_ids": [
+        "708cb968-45b2-4989-9017-c7b86e4f6870"
+      ],
+      "task_ids": [
+        "DASH-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "exploration"
+    },
+    "708cb968-45b2-4989-9017-c7b86e4f6870": {
+      "id": "708cb968-45b2-4989-9017-c7b86e4f6870",
+      "timestamp": "2025-06-15T05:38:58.422805",
+      "role": "user",
+      "content": "Let's design the system architecture. Should we use microservices or monolithic?",
+      "summary": null,
+      "parent_id": "8d30def3-1a8d-4979-ac6d-dd6ab942bbdd",
+      "children_ids": [
+        "bf303031-3d5e-47b1-a5fd-07141dbdbf34"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "ARCH-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "planning"
+    },
+    "bf303031-3d5e-47b1-a5fd-07141dbdbf34": {
+      "id": "bf303031-3d5e-47b1-a5fd-07141dbdbf34",
+      "timestamp": "2025-06-15T05:38:58.509524",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "708cb968-45b2-4989-9017-c7b86e4f6870",
+      "children_ids": [
+        "9e141425-77f7-468b-8025-3d88c83b5296"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "ARCH-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "planning"
+    },
+    "9e141425-77f7-468b-8025-3d88c83b5296": {
+      "id": "9e141425-77f7-468b-8025-3d88c83b5296",
+      "timestamp": "2025-06-15T05:38:59.010407",
+      "role": "user",
+      "content": "What database would work best for storing social media metrics?",
+      "summary": null,
+      "parent_id": "bf303031-3d5e-47b1-a5fd-07141dbdbf34",
+      "children_ids": [
+        "22d3409f-74ec-47d3-bc58-4fdc474905ef"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "DB-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "planning"
+    },
+    "22d3409f-74ec-47d3-bc58-4fdc474905ef": {
+      "id": "22d3409f-74ec-47d3-bc58-4fdc474905ef",
+      "timestamp": "2025-06-15T05:38:59.090678",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "9e141425-77f7-468b-8025-3d88c83b5296",
+      "children_ids": [
+        "dc43d958-27bf-4e12-a32a-2794b1ec1ed2"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "DB-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "planning"
+    },
+    "dc43d958-27bf-4e12-a32a-2794b1ec1ed2": {
+      "id": "dc43d958-27bf-4e12-a32a-2794b1ec1ed2",
+      "timestamp": "2025-06-15T05:38:59.591543",
+      "role": "user",
+      "content": "Create the initial task structure for building this dashboard",
+      "summary": null,
+      "parent_id": "22d3409f-74ec-47d3-bc58-4fdc474905ef",
+      "children_ids": [
+        "acf9c789-fdb5-4a91-a38d-4b8672a97a19"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "IMPL-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "implementation"
+    },
+    "acf9c789-fdb5-4a91-a38d-4b8672a97a19": {
+      "id": "acf9c789-fdb5-4a91-a38d-4b8672a97a19",
+      "timestamp": "2025-06-15T05:38:59.671715",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "dc43d958-27bf-4e12-a32a-2794b1ec1ed2",
+      "children_ids": [
+        "bc0c40f8-847d-4aa2-937e-436bbd9415fd"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "IMPL-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "implementation"
+    },
+    "bc0c40f8-847d-4aa2-937e-436bbd9415fd": {
+      "id": "bc0c40f8-847d-4aa2-937e-436bbd9415fd",
+      "timestamp": "2025-06-15T05:39:00.172516",
+      "role": "user",
+      "content": "How should we implement the Twitter API integration?",
+      "summary": null,
+      "parent_id": "acf9c789-fdb5-4a91-a38d-4b8672a97a19",
+      "children_ids": [
+        "18758bc1-82dd-4abb-a281-c89479b646b1"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "API-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "implementation"
+    },
+    "18758bc1-82dd-4abb-a281-c89479b646b1": {
+      "id": "18758bc1-82dd-4abb-a281-c89479b646b1",
+      "timestamp": "2025-06-15T05:39:00.254791",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "bc0c40f8-847d-4aa2-937e-436bbd9415fd",
+      "children_ids": [
+        "d814c3c1-3306-4867-8a8f-090695ba372d"
+      ],
+      "task_ids": [
+        "DASH-001",
+        "API-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "implementation"
+    },
+    "d814c3c1-3306-4867-8a8f-090695ba372d": {
+      "id": "d814c3c1-3306-4867-8a8f-090695ba372d",
+      "timestamp": "2025-06-15T05:39:00.755668",
+      "role": "user",
+      "content": "What about rate limiting for the APIs?",
+      "summary": null,
+      "parent_id": "18758bc1-82dd-4abb-a281-c89479b646b1",
+      "children_ids": [
+        "504a5623-af7d-4091-8513-6a56c800e4f0"
+      ],
+      "task_ids": [
+        "API-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "implementation"
+    },
+    "504a5623-af7d-4091-8513-6a56c800e4f0": {
+      "id": "504a5623-af7d-4091-8513-6a56c800e4f0",
+      "timestamp": "2025-06-15T05:39:00.830247",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "d814c3c1-3306-4867-8a8f-090695ba372d",
+      "children_ids": [
+        "504a1579-1b3e-4e23-8303-3cbb4e767fe8"
+      ],
+      "task_ids": [
+        "API-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "implementation"
+    },
+    "504a1579-1b3e-4e23-8303-3cbb4e767fe8": {
+      "id": "504a1579-1b3e-4e23-8303-3cbb4e767fe8",
+      "timestamp": "2025-06-15T05:39:01.331092",
+      "role": "user",
+      "content": "Should we use Redis for caching?",
+      "summary": null,
+      "parent_id": "504a5623-af7d-4091-8513-6a56c800e4f0",
+      "children_ids": [
+        "6346f536-f3e4-494c-83d3-92f0f299c3cb"
+      ],
+      "task_ids": [
+        "CACHE-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "planning"
+    },
+    "6346f536-f3e4-494c-83d3-92f0f299c3cb": {
+      "id": "6346f536-f3e4-494c-83d3-92f0f299c3cb",
+      "timestamp": "2025-06-15T05:39:01.412935",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "504a1579-1b3e-4e23-8303-3cbb4e767fe8",
+      "children_ids": [
+        "c9a838b7-b510-4199-b7b7-0ff5bb59d424"
+      ],
+      "task_ids": [
+        "CACHE-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "planning"
+    },
+    "c9a838b7-b510-4199-b7b7-0ff5bb59d424": {
+      "id": "c9a838b7-b510-4199-b7b7-0ff5bb59d424",
+      "timestamp": "2025-06-15T05:39:01.913781",
+      "role": "user",
+      "content": "How do we handle authentication?",
+      "summary": null,
+      "parent_id": "6346f536-f3e4-494c-83d3-92f0f299c3cb",
+      "children_ids": [
+        "36cfc45a-604d-4966-8800-a31aa47258ff"
+      ],
+      "task_ids": [
+        "AUTH-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "planning"
+    },
+    "36cfc45a-604d-4966-8800-a31aa47258ff": {
+      "id": "36cfc45a-604d-4966-8800-a31aa47258ff",
+      "timestamp": "2025-06-15T05:39:01.995755",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "c9a838b7-b510-4199-b7b7-0ff5bb59d424",
+      "children_ids": [
+        "c675ad19-b6a2-4ec7-a9d6-fd0cb7463539"
+      ],
+      "task_ids": [
+        "AUTH-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "planning"
+    },
+    "c675ad19-b6a2-4ec7-a9d6-fd0cb7463539": {
+      "id": "c675ad19-b6a2-4ec7-a9d6-fd0cb7463539",
+      "timestamp": "2025-06-15T05:39:02.496635",
+      "role": "user",
+      "content": "What frontend framework should we use?",
+      "summary": null,
+      "parent_id": "36cfc45a-604d-4966-8800-a31aa47258ff",
+      "children_ids": [
+        "915bedce-4166-43e0-b496-3e56c58a2282"
+      ],
+      "task_ids": [
+        "UI-001"
+      ],
+      "importance_score": 1.0,
+      "conversation_phase": "planning"
+    },
+    "915bedce-4166-43e0-b496-3e56c58a2282": {
+      "id": "915bedce-4166-43e0-b496-3e56c58a2282",
+      "timestamp": "2025-06-15T05:39:02.575484",
+      "role": "assistant",
+      "content": "I encountered an error while processing your request: Error code: 401 - {'error': {'message': 'Incorrect API key provided: mock-key. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+      "summary": null,
+      "parent_id": "c675ad19-b6a2-4ec7-a9d6-fd0cb7463539",
+      "children_ids": [],
+      "task_ids": [
+        "UI-001"
+      ],
+      "importance_score": 0.5,
+      "conversation_phase": "planning"
+    }
+  },
+  "communities": {
+    "task_community_DASH-001": {
+      "id": "task_community_DASH-001",
+      "name": "Task DASH-001 Discussion",
+      "theme": "task_DASH-001",
+      "node_ids": [
+        "dc43d958-27bf-4e12-a32a-2794b1ec1ed2",
+        "4c223696-078c-4668-bae1-b83fceb86648",
+        "66cb3c54-8f48-49ca-a750-021e94ce23d4",
+        "93879265-540d-4c08-93bb-82229d95bbbf",
+        "22d3409f-74ec-47d3-bc58-4fdc474905ef",
+        "acf9c789-fdb5-4a91-a38d-4b8672a97a19",
+        "708cb968-45b2-4989-9017-c7b86e4f6870",
+        "bf303031-3d5e-47b1-a5fd-07141dbdbf34",
+        "bc0c40f8-847d-4aa2-937e-436bbd9415fd",
+        "9e141425-77f7-468b-8025-3d88c83b5296",
+        "18758bc1-82dd-4abb-a281-c89479b646b1",
+        "8d30def3-1a8d-4979-ac6d-dd6ab942bbdd"
+      ],
+      "summary": null
+    },
+    "task_community_ARCH-001": {
+      "id": "task_community_ARCH-001",
+      "name": "Task ARCH-001 Discussion",
+      "theme": "task_ARCH-001",
+      "node_ids": [
+        "bf303031-3d5e-47b1-a5fd-07141dbdbf34",
+        "708cb968-45b2-4989-9017-c7b86e4f6870"
+      ],
+      "summary": null
+    },
+    "task_community_DB-001": {
+      "id": "task_community_DB-001",
+      "name": "Task DB-001 Discussion",
+      "theme": "task_DB-001",
+      "node_ids": [
+        "9e141425-77f7-468b-8025-3d88c83b5296",
+        "22d3409f-74ec-47d3-bc58-4fdc474905ef"
+      ],
+      "summary": null
+    },
+    "task_community_IMPL-001": {
+      "id": "task_community_IMPL-001",
+      "name": "Task IMPL-001 Discussion",
+      "theme": "task_IMPL-001",
+      "node_ids": [
+        "dc43d958-27bf-4e12-a32a-2794b1ec1ed2",
+        "acf9c789-fdb5-4a91-a38d-4b8672a97a19"
+      ],
+      "summary": null
+    },
+    "task_community_API-001": {
+      "id": "task_community_API-001",
+      "name": "Task API-001 Discussion",
+      "theme": "task_API-001",
+      "node_ids": [
+        "bc0c40f8-847d-4aa2-937e-436bbd9415fd",
+        "18758bc1-82dd-4abb-a281-c89479b646b1",
+        "d814c3c1-3306-4867-8a8f-090695ba372d",
+        "504a5623-af7d-4091-8513-6a56c800e4f0"
+      ],
+      "summary": null
+    },
+    "task_community_CACHE-001": {
+      "id": "task_community_CACHE-001",
+      "name": "Task CACHE-001 Discussion",
+      "theme": "task_CACHE-001",
+      "node_ids": [
+        "504a1579-1b3e-4e23-8303-3cbb4e767fe8",
+        "6346f536-f3e4-494c-83d3-92f0f299c3cb"
+      ],
+      "summary": null
+    },
+    "task_community_AUTH-001": {
+      "id": "task_community_AUTH-001",
+      "name": "Task AUTH-001 Discussion",
+      "theme": "task_AUTH-001",
+      "node_ids": [
+        "c9a838b7-b510-4199-b7b7-0ff5bb59d424",
+        "36cfc45a-604d-4966-8800-a31aa47258ff"
+      ],
+      "summary": null
+    },
+    "task_community_UI-001": {
+      "id": "task_community_UI-001",
+      "name": "Task UI-001 Discussion",
+      "theme": "task_UI-001",
+      "node_ids": [
+        "c675ad19-b6a2-4ec7-a9d6-fd0cb7463539",
+        "915bedce-4166-43e0-b496-3e56c58a2282"
+      ],
+      "summary": null
+    }
+  },
+  "metrics": {
+    "total_nodes": 20,
+    "total_communities": 8,
+    "avg_context_size": 0
+  }
+}

@@ -1,0 +1,470 @@
+{
+  "project_id": "ecommerce-v2",
+  "tasks": {
+    "ca4a59fc-d064-497e-a43e-98d942443951": {
+      "id": "ca4a59fc-d064-497e-a43e-98d942443951",
+      "title": "Build E-commerce Platform",
+      "description": "Create a full-featured online shopping platform with user management, product catalog, and checkout",
+      "agent_type": "architect",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.449888",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": null,
+      "subtask_ids": [
+        "a0724ff7-be41-46b7-925d-ff2900955762",
+        "f29e6c02-a636-484b-bc08-7497d336d541",
+        "3d308bce-e8a0-4481-8030-13c9ab5c6bc7",
+        "ee5b7af6-9af7-42a4-93e4-67411a87a412"
+      ],
+      "granularity": "epic",
+      "community_id": "3c891dea-5cd0-4a3d-a3c9-56c5f18b12bf",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "a0724ff7-be41-46b7-925d-ff2900955762": {
+      "id": "a0724ff7-be41-46b7-925d-ff2900955762",
+      "title": "User Authentication System",
+      "description": "Implement user registration, login, and session management",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.449938",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "ca4a59fc-d064-497e-a43e-98d942443951",
+      "subtask_ids": [
+        "18b68300-895b-414b-aafc-249e7fe33246",
+        "538ae4d3-caed-44c6-8139-cb793a40d67e",
+        "5f531400-12c0-431e-b47b-4b4c0991a793",
+        "04c617ab-37c3-441f-afd7-01247a10fac6"
+      ],
+      "granularity": "task",
+      "community_id": "79b64f3c-6533-430f-ba58-924a216d9ca2",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "f29e6c02-a636-484b-bc08-7497d336d541": {
+      "id": "f29e6c02-a636-484b-bc08-7497d336d541",
+      "title": "Product Catalog",
+      "description": "Create product listing, search, and filtering functionality",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.449976",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "ca4a59fc-d064-497e-a43e-98d942443951",
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": null,
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "ee5b7af6-9af7-42a4-93e4-67411a87a412": {
+      "id": "ee5b7af6-9af7-42a4-93e4-67411a87a412",
+      "title": "Shopping Cart",
+      "description": "Implement cart management with add/remove/update functionality",
+      "agent_type": "coding_agent",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450010",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "ca4a59fc-d064-497e-a43e-98d942443951",
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": null,
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "3d308bce-e8a0-4481-8030-13c9ab5c6bc7": {
+      "id": "3d308bce-e8a0-4481-8030-13c9ab5c6bc7",
+      "title": "Checkout Process",
+      "description": "Create order processing and payment integration",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450046",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "ca4a59fc-d064-497e-a43e-98d942443951",
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": "8b29edb5-02ca-4dd2-bb00-84d35cada46b",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "18b68300-895b-414b-aafc-249e7fe33246": {
+      "id": "18b68300-895b-414b-aafc-249e7fe33246",
+      "title": "Implement JWT token generation",
+      "description": "Create utilities for generating and validating JWT tokens",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [
+        "04c617ab-37c3-441f-afd7-01247a10fac6"
+      ],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450098",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "a0724ff7-be41-46b7-925d-ff2900955762",
+      "subtask_ids": [],
+      "granularity": "subtask",
+      "community_id": "79b64f3c-6533-430f-ba58-924a216d9ca2",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "538ae4d3-caed-44c6-8139-cb793a40d67e": {
+      "id": "538ae4d3-caed-44c6-8139-cb793a40d67e",
+      "title": "Create User model and database schema",
+      "description": "Define User model with fields for authentication",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [
+        "04c617ab-37c3-441f-afd7-01247a10fac6"
+      ],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450129",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "a0724ff7-be41-46b7-925d-ff2900955762",
+      "subtask_ids": [],
+      "granularity": "subtask",
+      "community_id": "1793fea6-3f8c-4568-b303-83ce59aeeccd",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "04c617ab-37c3-441f-afd7-01247a10fac6": {
+      "id": "04c617ab-37c3-441f-afd7-01247a10fac6",
+      "title": "Build authentication API endpoints",
+      "description": "Create /register, /login, /logout endpoints",
+      "agent_type": "coding_agent",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        "18b68300-895b-414b-aafc-249e7fe33246",
+        "538ae4d3-caed-44c6-8139-cb793a40d67e"
+      ],
+      "dependents": [
+        "5f531400-12c0-431e-b47b-4b4c0991a793"
+      ],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450161",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "a0724ff7-be41-46b7-925d-ff2900955762",
+      "subtask_ids": [],
+      "granularity": "subtask",
+      "community_id": "79b64f3c-6533-430f-ba58-924a216d9ca2",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "5f531400-12c0-431e-b47b-4b4c0991a793": {
+      "id": "5f531400-12c0-431e-b47b-4b4c0991a793",
+      "title": "Write authentication tests",
+      "description": "Create unit and integration tests for auth system",
+      "agent_type": "coding_agent",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        "04c617ab-37c3-441f-afd7-01247a10fac6"
+      ],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450204",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": "a0724ff7-be41-46b7-925d-ff2900955762",
+      "subtask_ids": [],
+      "granularity": "subtask",
+      "community_id": "8b29edb5-02ca-4dd2-bb00-84d35cada46b",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "4e8aae9e-0b20-40cf-a227-2a2e3bec8eb7": {
+      "id": "4e8aae9e-0b20-40cf-a227-2a2e3bec8eb7",
+      "title": "Setup PostgreSQL database",
+      "description": "Initialize database with proper configuration and migrations",
+      "agent_type": "coding_agent",
+      "priority": "critical",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [
+        "aed67a57-4f68-4358-abd9-a655f18e9c5a"
+      ],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450314",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": null,
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": "1793fea6-3f8c-4568-b303-83ce59aeeccd",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "aed67a57-4f68-4358-abd9-a655f18e9c5a": {
+      "id": "aed67a57-4f68-4358-abd9-a655f18e9c5a",
+      "title": "Create database models",
+      "description": "Define all database models for products, orders, users",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [
+        "4e8aae9e-0b20-40cf-a227-2a2e3bec8eb7"
+      ],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450347",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": null,
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": "1793fea6-3f8c-4568-b303-83ce59aeeccd",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "3c473233-b6de-47aa-93cd-f6a840df25c6": {
+      "id": "3c473233-b6de-47aa-93cd-f6a840df25c6",
+      "title": "Setup React frontend",
+      "description": "Initialize React app with TypeScript and required dependencies",
+      "agent_type": "coding_agent",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "dependents": [
+        "9dce4e82-6866-4b33-b3d3-4355c479ddbc"
+      ],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450397",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": null,
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": "3c891dea-5cd0-4a3d-a3c9-56c5f18b12bf",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    },
+    "9dce4e82-6866-4b33-b3d3-4355c479ddbc": {
+      "id": "9dce4e82-6866-4b33-b3d3-4355c479ddbc",
+      "title": "Build reusable UI components",
+      "description": "Create component library with buttons, forms, cards, etc.",
+      "agent_type": "coding_agent",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        "3c473233-b6de-47aa-93cd-f6a840df25c6"
+      ],
+      "dependents": [],
+      "context": {},
+      "created_at": "2025-06-15T01:17:35.450433",
+      "started_at": null,
+      "completed_at": null,
+      "error_message": null,
+      "parent_id": null,
+      "subtask_ids": [],
+      "granularity": "task",
+      "community_id": "3c891dea-5cd0-4a3d-a3c9-56c5f18b12bf",
+      "rag_context": {
+        "chunk_ids": [],
+        "search_queries": [],
+        "file_patterns": [],
+        "symbols": []
+      },
+      "estimated_hours": 0.0,
+      "actual_hours": 0.0,
+      "expanded": false,
+      "hidden": false
+    }
+  },
+  "communities": {
+    "3c891dea-5cd0-4a3d-a3c9-56c5f18b12bf": {
+      "id": "3c891dea-5cd0-4a3d-a3c9-56c5f18b12bf",
+      "name": "Frontend & UI",
+      "description": "User interface and frontend components",
+      "theme": "frontend_ui",
+      "color": "#8B5CF6",
+      "task_ids": [
+        "ca4a59fc-d064-497e-a43e-98d942443951",
+        "3c473233-b6de-47aa-93cd-f6a840df25c6",
+        "9dce4e82-6866-4b33-b3d3-4355c479ddbc"
+      ]
+    },
+    "79b64f3c-6533-430f-ba58-924a216d9ca2": {
+      "id": "79b64f3c-6533-430f-ba58-924a216d9ca2",
+      "name": "Authentication & Security",
+      "description": "User authentication and security features",
+      "theme": "authentication_security",
+      "color": "#DC2626",
+      "task_ids": [
+        "a0724ff7-be41-46b7-925d-ff2900955762",
+        "18b68300-895b-414b-aafc-249e7fe33246",
+        "04c617ab-37c3-441f-afd7-01247a10fac6"
+      ]
+    },
+    "8b29edb5-02ca-4dd2-bb00-84d35cada46b": {
+      "id": "8b29edb5-02ca-4dd2-bb00-84d35cada46b",
+      "name": "Testing & QA",
+      "description": "Testing and quality assurance",
+      "theme": "testing_qa",
+      "color": "#F59E0B",
+      "task_ids": [
+        "5f531400-12c0-431e-b47b-4b4c0991a793",
+        "3d308bce-e8a0-4481-8030-13c9ab5c6bc7"
+      ]
+    },
+    "1793fea6-3f8c-4568-b303-83ce59aeeccd": {
+      "id": "1793fea6-3f8c-4568-b303-83ce59aeeccd",
+      "name": "Database & Models",
+      "description": "Database operations and data modeling",
+      "theme": "database_models",
+      "color": "#059669",
+      "task_ids": [
+        "538ae4d3-caed-44c6-8139-cb793a40d67e",
+        "aed67a57-4f68-4358-abd9-a655f18e9c5a",
+        "4e8aae9e-0b20-40cf-a227-2a2e3bec8eb7"
+      ]
+    }
+  },
+  "display_state": {
+    "display_mode": "focused",
+    "focused_task_id": "a0724ff7-be41-46b7-925d-ff2900955762",
+    "expanded_task_ids": []
+  },
+  "metadata": {
+    "saved_at": "2025-06-15T01:17:35.450996",
+    "task_count": 13,
+    "community_count": 4
+  }
+}

@@ -1,7 +1,7 @@
 """
 LLM integration for the Request Planner.
 
-This module handles all interactions with OpenAI models, including
+This module handles all interactions with LLM models, including
 prompt management, function calling, and structured output parsing.
 """
 
@@ -12,42 +12,34 @@ from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import asdict
 import logging
 
-from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .models import (
     ChangeRequest, Plan, Step, StepKind, ComplexityLevel
 )
+from src.llm_v2 import UnifiedLLMClient
 
 logger = logging.getLogger(__name__)
 
 
 class LLMClient:
     """
-    Client for interacting with OpenAI models.
+    Client for interacting with LLM models.
     
-    Uses o3-mini for planning tasks and gpt-4o for other tasks.
+    Uses the unified model card system for cost tracking and limits.
     """
     
     def __init__(self):
-        """Initialize the OpenAI client."""
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "OPENAI_API_KEY environment variable not set.\n"
-                "Please either:\n"
-                "1. Export it: export OPENAI_API_KEY=your-key\n"
-                "2. Create a .env file with: OPENAI_API_KEY=your-key\n"
-                "3. Copy .env.example to .env and add your key"
-            )
+        """Initialize the LLM client with model card system."""
+        # Initialize unified LLM client with request planner specific model
+        model = os.getenv("REQUEST_PLANNER_MODEL", os.getenv("PLANNING_MODEL"))
+        self.client = UnifiedLLMClient(model=model, agent_name="request_planner")
         
-        self.client = OpenAI(api_key=api_key)
+        # Model references for backward compatibility
+        self.planning_model = self.client.model
+        self.general_model = self.client.model
         
-        # Load model names from environment or use defaults
-        self.planning_model = os.getenv("PLANNING_MODEL", "gpt-4o")
-        self.general_model = os.getenv("GENERAL_MODEL", "gpt-4o")
-        
-        logger.info(f"LLM Client initialized with models: planning={self.planning_model}, general={self.general_model}")
+        logger.info(f"Request Planner LLM initialized with model: {self.client.model_card.display_name}")
         
     @retry(
         stop=stop_after_attempt(3),
@@ -96,15 +88,15 @@ class LLMClient:
                 completion_params["max_tokens"] = 2000
                 completion_params["temperature"] = 0.7
             
-            response = self.client.chat.completions.create(**completion_params)
+            # Use the unified client's generate_json method
+            plan_data = self.client.generate_json(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.2,
+                max_tokens=2000
+            )
             
-            # Extract the function call response
-            function_call = response.choices[0].message.function_call
-            if not function_call:
-                raise ValueError("No function call in response")
-            
-            # Parse the JSON response
-            plan_data = json.loads(function_call.arguments)
+            # plan_data is already parsed JSON from generate_json
             
             # Convert to Plan object
             plan = self._parse_plan_response(plan_data, request.id)
@@ -116,10 +108,7 @@ class LLMClient:
                 # For now, log but still return the plan
                 # In production, we might retry with feedback
             
-            # Log token usage
-            logger.info(
-                f"Plan created - tokens used: {response.usage.total_tokens}"
-            )
+            logger.info("Plan created successfully")
             
             return plan
             
@@ -161,9 +150,15 @@ class LLMClient:
                 completion_params["max_tokens"] = 1000
                 completion_params["temperature"] = 0.3
                 
-            response = self.client.chat.completions.create(**completion_params)
+            # Use the unified client's generate method for text response
+            response = self.client.generate(
+                prompt=prompt,
+                system_prompt="You are a helpful code analysis assistant.",
+                temperature=0.3,
+                max_tokens=1000
+            )
             
-            return response.choices[0].message.content
+            return response
             
         except Exception as e:
             logger.error(f"Error analyzing code: {e}")
@@ -171,26 +166,41 @@ class LLMClient:
     
     def _get_system_prompt(self) -> str:
         """Get the system prompt for the Request Planner."""
-        return """You are Request-Planner v1, an intelligent software development assistant similar to Claude Code or GitHub Copilot.
+        return """You are Request-Planner v1, an intelligent software development assistant.
 
 Your role is to understand software change requests and create detailed, actionable implementation plans.
 
-Key principles:
-1. Think step-by-step about what needs to be done
-2. Consider the existing codebase structure and patterns
-3. Break down complex tasks into manageable steps
-4. Identify which files will be affected
-5. Estimate complexity accurately
-6. Provide clear rationale for your decisions
+You MUST respond with a JSON object containing the following fields:
+{
+    "steps": [
+        {
+            "order": 1,
+            "goal": "Clear description of what to do",
+            "kind": "EXACTLY one of: edit, add, remove, refactor, test, review",
+            "hints": ["Optional hints or considerations"]
+        }
+    ],
+    "rationale": ["List of reasoning points behind the plan"],
+    "affected_paths": ["List of file paths that will be modified"],
+    "complexity_label": "EXACTLY one of: trivial, moderate, complex",
+    "estimated_tokens": 1000
+}
+
+IMPORTANT - Valid StepKind values:
+- "edit": Modify existing code/files
+- "add": Add new code/files
+- "remove": Remove code/files
+- "refactor": Restructure existing code
+- "test": Add or modify tests
+- "review": Review code changes
+
+DO NOT use values like "analyze", "modify", "create", or "document" - these are INVALID.
 
 Planning approach:
-- ALWAYS start by understanding the current code structure
-- Identify patterns and conventions used in the codebase
+- Start by understanding the current code structure
 - Create atomic, testable steps
 - Consider edge cases and error handling
-- Include test updates when modifying functionality
-
-You must output a structured plan using the provided function schema. Be specific and actionable in your steps."""
+- Include test updates when modifying functionality"""
     
     def _get_user_prompt(
         self, 
@@ -228,7 +238,9 @@ Think through the problem step-by-step:
 - Then, identify what needs to change
 - Finally, create a logical sequence of steps
 
-Generate a comprehensive plan that a developer can follow."""
+Generate a comprehensive plan that a developer can follow.
+
+IMPORTANT: Respond ONLY with a valid JSON object following the schema shown in the system prompt."""
         
         return prompt
     

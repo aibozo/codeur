@@ -1,0 +1,316 @@
+COMPREHENSIVE SYSTEM ARCHITECTURE SUMMARY
+=========================================
+
+This document provides a thorough overview of the self-healing code generation agent system, detailing each major component, their interconnections, and how they work together to create an intelligent software development assistant.
+
+## SYSTEM OVERVIEW
+
+The project implements a multi-agent AI system designed to automate software development tasks through natural language instructions. It consists of several specialized agents orchestrated through an event-driven architecture, with a React frontend dashboard for monitoring and control.
+
+### Core Architecture Principles:
+- **Multi-Agent Design**: Specialized agents for different tasks (planning, coding, analysis)
+- **Event-Driven Communication**: Asynchronous message passing between components
+- **Context-Aware**: Uses RAG for codebase understanding
+- **Task Graph Orchestration**: Hierarchical task management with dependencies
+- **Real-time Monitoring**: WebSocket-based live updates to frontend
+
+## MAJOR COMPONENTS
+
+### 1. REQUEST PLANNER (src/request_planner/)
+**Purpose**: Main orchestrator that converts natural language requests into actionable plans
+
+**Key Files**:
+- `planner.py`: Core planning logic with LLM and heuristic strategies
+- `integrated_planner.py`: Task graph integration
+- `enhanced_integrated_planner.py`: Advanced features with agent coordination
+- `context.py`: Codebase context retrieval
+- `llm.py`: LLM integration with structured outputs
+
+**How it Works**:
+1. Receives natural language change requests
+2. Parses intent and searches relevant code context
+3. Creates structured implementation plans using LLM
+4. Converts plans to task graphs for execution
+5. Assigns tasks to specialized agents
+6. Monitors execution progress
+
+**Connections**:
+- Uses RAG service for context gathering
+- Creates tasks in Task Graph
+- Publishes events to Message Bus
+- Delegates to Coding Agent, Test Agent, etc.
+
+### 2. ARCHITECT AGENT (src/architect/)
+**Purpose**: High-level system design and conversation management
+
+**Key Files**:
+- `architect.py`: Base architect functionality
+- `context_aware_architect.py`: Advanced conversation management
+- `context_graph.py`: Graph-based conversation history
+- `enhanced_task_graph.py`: Hierarchical task organization
+- `llm_tools.py`: Function calling interface
+
+**How it Works**:
+1. Manages long-running design conversations
+2. Uses context graph to compress conversation history
+3. Creates hierarchical task structures (epics/tasks/subtasks)
+4. Detects task communities and themes
+5. Integrates RAG for code-aware responses
+6. Provides abstracted views for UI
+
+**Connections**:
+- Uses RAG for codebase understanding
+- Creates tasks in Enhanced Task Graph
+- Integrates with Task Scheduler
+- Provides data for frontend visualization
+
+### 3. CODING AGENT (src/coding_agent/)
+**Purpose**: Converts coding tasks into actual code changes and git commits
+
+**Key Files**:
+- `agent.py`: Main coding agent orchestrator
+- `context_gatherer.py`: Smart context retrieval
+- `patch_generator.py`: LLM-based diff generation
+- `file_rewriter.py`: Alternative full-file rewriting
+- `validator.py`: Code validation pipeline
+- `integrated_coding_agent.py`: Full system integration
+
+**How it Works**:
+1. Receives CodingTask with goals and context
+2. Creates feature branch for changes
+3. Gathers relevant context using RAG
+4. Generates patches or rewrites files
+5. Validates syntax, linting, types, tests
+6. Commits changes with descriptive messages
+7. Reports results back through events
+
+**Connections**:
+- Uses RAG for finding similar code
+- Integrates with Git operations
+- Reports progress via Event Bridge
+- Works with Change Tracker
+
+### 4. ANALYZER AGENT (src/analyzer/)
+**Purpose**: Automatic architecture analysis and documentation
+
+**Key Files**:
+- `analyzer.py`: Main analysis orchestrator
+- `models.py`: Data structures for architecture representation
+
+**How it Works**:
+1. Discovers components based on file patterns
+2. Analyzes dependencies through imports
+3. Detects architectural patterns
+4. Generates reports and visualizations
+5. Monitors changes for re-analysis triggers
+6. Creates Mermaid diagrams
+
+**Connections**:
+- Integrates with Change Tracker
+- Can update RAG with analysis results
+- Provides data for frontend visualization
+
+### 5. RAG SERVICE (src/rag_service/)
+**Purpose**: Retrieval-Augmented Generation for codebase understanding
+
+**Key Files**:
+- `service.py`: Main RAG orchestrator
+- `chunker.py`: Semantic code chunking
+- `embeddings.py`: OpenAI embedding generation
+- `vector_store.py`: ChromaDB vector storage
+- `search.py`: Hybrid search implementation
+- `client.py`: Simplified interface
+
+**How it Works**:
+1. Indexes codebase with semantic chunking
+2. Generates embeddings for code chunks
+3. Stores in vector database
+4. Provides hybrid search (vector + keyword)
+5. Formats results for LLM consumption
+6. Supports incremental updates
+
+**Connections**:
+- Used by all agents for context
+- Integrated with file system monitoring
+- Provides search API for frontend
+
+### 6. CORE INFRASTRUCTURE (src/core/)
+
+#### Event System:
+- `message_bus.py`: Internal pub/sub system
+- `event_bridge.py`: Typed message to WebSocket bridge
+- `simple_event_bridge.py`: String-based event wrapper
+- `realtime.py`: WebSocket server implementation
+
+#### Agent Coordination:
+- `agent_registry.py`: Central agent state management
+- `agent_graph.py`: Static agent relationship graph
+- `integrated_agent_base.py`: Base class for agent integration
+- `task_scheduler.py`: Intelligent task assignment
+
+#### Monitoring:
+- `metrics_collector.py`: System resource monitoring
+- `flow_tracker.py`: Agent communication tracking
+- `change_tracker.py`: File change monitoring
+
+### 7. TASK GRAPH SYSTEM (src/architect/)
+**Purpose**: Hierarchical task management with dependencies
+
+**Key Files**:
+- `enhanced_task_graph.py`: Core task graph implementation
+- `task_graph_manager.py`: High-level task operations
+- `community_detector.py`: Task clustering algorithm
+
+**How it Works**:
+1. Maintains hierarchical task structure
+2. Tracks dependencies and states
+3. Detects task communities/themes
+4. Provides abstracted views for UI
+5. Integrates with scheduler for execution
+
+### 8. WEBHOOK SYSTEM (src/webhook/)
+**Purpose**: External integration and API server
+
+**Key Files**:
+- `server.py`: FastAPI server with WebSocket
+- `handlers.py`: Platform-specific handlers (Discord, GitHub, Slack)
+- `security.py`: Authentication and rate limiting
+- `executor.py`: Async task execution queue
+
+**How it Works**:
+1. Receives webhooks from external platforms
+2. Validates security (tokens, signatures)
+3. Parses platform-specific payloads
+4. Creates and queues agent tasks
+5. Provides REST API for frontend
+6. Manages WebSocket connections
+
+### 9. FRONTEND DASHBOARD (frontend/)
+**Purpose**: React-based monitoring and control interface
+
+**Key Components**:
+- `BuildPage.tsx`: Main development interface
+- `TaskGraph.tsx`: Interactive task visualization
+- `ChangeMetrics.tsx`: Code change tracking
+- `ArchitectureDiagram.tsx`: System visualization
+- `api/client.ts`: Backend API client
+
+**Features**:
+- Real-time agent status monitoring
+- Interactive task graph visualization
+- Code change metrics
+- Architecture diagrams
+- Chat interface for Architect
+
+## DATA FLOW
+
+1. **User Request Flow**:
+   User → Frontend/Webhook → Request Planner → Task Graph → Specialized Agents
+
+2. **Context Flow**:
+   Codebase → RAG Service → Agents → LLM → Code Changes
+
+3. **Event Flow**:
+   Agents → Message Bus → Event Bridge → WebSocket → Frontend
+
+4. **Task Flow**:
+   Plan → Task Graph → Scheduler → Agent → Execution → Results
+
+## KEY INTEGRATIONS
+
+1. **LLM Integration**:
+   - Uses OpenAI API (configurable models)
+   - Structured outputs via function calling
+   - Context-aware prompting
+
+2. **Git Integration**:
+   - Branch creation and management
+   - Patch application
+   - Commit creation
+   - Safe operations with validation
+
+3. **File System Integration**:
+   - Change monitoring
+   - Safe file operations
+   - Project isolation
+
+## CONFIGURATION
+
+- Environment variables for API keys and models
+- YAML configuration files (.agent.yaml)
+- Project mappings for webhook routing
+- Configurable thresholds and limits
+
+## DEPLOYMENT ARCHITECTURE
+
+1. **Development Mode**:
+   - Frontend: Vite dev server (port 5173)
+   - Backend: FastAPI server (port 8088)
+   - Services: In-process
+
+2. **Production Mode**:
+   - Frontend: Static build
+   - Backend: ASGI server (uvicorn)
+   - Services: Can be distributed
+
+## KNOWN ISSUES AND LIMITATIONS
+
+### Backend Agent Connection Issues:
+1. **Missing WebSocket Implementation in Frontend**:
+   - Frontend API client only uses REST endpoints
+   - No real-time updates implemented in frontend components
+   - WebSocket exists in backend but not connected
+
+2. **Incomplete API Implementation**:
+   - Main webhook server missing several endpoints
+   - Separate minimal server implements missing endpoints
+   - Inconsistency between servers
+
+3. **Module Import Errors**:
+   - `src.code_planner.integrated_code_planner` module missing
+   - Causes integration demo failures
+
+4. **Test Failures**:
+   - E2E tests failing due to API mismatches
+   - Parameter mismatches in agent initialization
+   - Missing attributes in data models
+
+5. **RAG Service Dependencies**:
+   - Requires OpenAI API key
+   - Falls back gracefully but limits functionality
+   - Embedding generation can be costly
+
+6. **Frontend Data**:
+   - Some components use hardcoded demo data
+   - Could be enhanced to use real API data
+
+### Environment Issues:
+1. **Configuration Complexity**:
+   - Multiple configuration sources
+   - Environment variables not always documented
+   - Inconsistent defaults
+
+2. **Development Setup**:
+   - Complex dependency requirements
+   - Multiple services to coordinate
+   - Platform-specific issues (Windows/Linux/Mac)
+
+3. **Resource Usage**:
+   - Can be memory intensive with large codebases
+   - Embedding generation requires significant compute
+   - Multiple LLM calls can be expensive
+
+## RECOMMENDATIONS
+
+1. **Fix WebSocket Connection**: Implement WebSocket client in frontend for real-time updates
+2. **Unify API Servers**: Merge minimal and main webhook servers
+3. **Complete Missing Modules**: Implement missing integrated agents
+4. **Improve Test Coverage**: Fix failing E2E tests
+5. **Documentation**: Add setup guides and API documentation
+6. **Error Handling**: Improve error messages and recovery
+7. **Performance**: Add caching and optimize LLM usage
+8. **Security**: Implement proper authentication for production
+
+## CONCLUSION
+
+This system represents a sophisticated approach to AI-assisted software development, combining multiple specialized agents with modern web technologies. While the architecture is well-designed and modular, there are implementation gaps particularly in the frontend-backend integration that need addressing for production readiness. The event-driven architecture and task graph system provide excellent foundations for scaling and extending the system's capabilities.

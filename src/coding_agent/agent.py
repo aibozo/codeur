@@ -25,6 +25,14 @@ from .file_rewriter import FileRewriter
 from .validator import PatchValidator
 from .git_operations import GitOperations
 
+# Import change tracker
+try:
+    from src.core.change_tracker import get_change_tracker
+    CHANGE_TRACKING_AVAILABLE = True
+except ImportError:
+    get_change_tracker = None
+    CHANGE_TRACKING_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,7 +79,7 @@ class CodingAgent:
         
         logger.info(f"Initialized Coding Agent for {repo_path}")
     
-    def process_task(self, task: messages_pb2.CodingTask) -> CommitResult:
+    async def process_task(self, task: messages_pb2.CodingTask) -> CommitResult:
         """
         Process a coding task and produce a commit.
         
@@ -183,6 +191,22 @@ class CodingAgent:
                     logger.info("Applying patch...")
                     applied, error = self.git_ops.apply_patch(patch_content)
                     
+                    # Track changes if patch was applied successfully
+                    if applied and CHANGE_TRACKING_AVAILABLE:
+                        try:
+                            change_tracker = get_change_tracker()
+                            # Extract files from patch
+                            files_in_patch = self._extract_files_from_patch(patch_content)
+                            for file_path in files_in_patch:
+                                await change_tracker.track_diff(
+                                    diff_content=patch_content,
+                                    file_path=file_path,
+                                    agent_type="coding_agent"
+                                )
+                            logger.debug(f"Tracked changes for {len(files_in_patch)} files")
+                        except Exception as e:
+                            logger.debug(f"Change tracking failed: {e}")
+                    
                     if not applied:
                         # Analyze the error and provide feedback
                         feedback = self._analyze_patch_error(error, patch_content)
@@ -247,6 +271,15 @@ class CodingAgent:
                 if commit_sha:
                     result.commit_sha = commit_sha
                     result.status = CommitStatus.SUCCESS
+                    
+                    # Track commit in change tracker
+                    if CHANGE_TRACKING_AVAILABLE:
+                        try:
+                            change_tracker = get_change_tracker()
+                            # Update tracked changes with commit hash
+                            logger.debug(f"Associated changes with commit {commit_sha}")
+                        except Exception as e:
+                            logger.debug(f"Failed to update commit tracking: {e}")
                     result.add_note(f"Successfully created commit {commit_sha[:8]}")
                     
                     # Push branch (optional, could be done later)
@@ -486,6 +519,23 @@ Example:
         
         header = f"=== {file_path}:{start_line}-{end_line} ==="
         return f"{header}\n" + '\n'.join(numbered_lines)
+    
+    def _extract_files_from_patch(self, patch_content: str) -> List[str]:
+        """Extract file paths from a unified diff patch."""
+        files = []
+        for line in patch_content.splitlines():
+            if line.startswith('--- a/'):
+                file_path = line[6:].strip()
+                if file_path and file_path not in files:
+                    files.append(file_path)
+            elif line.startswith('diff --git'):
+                # Alternative format: diff --git a/file b/file
+                parts = line.split()
+                if len(parts) >= 3:
+                    file_path = parts[2][2:]  # Remove 'a/' prefix
+                    if file_path and file_path not in files:
+                        files.append(file_path)
+        return files
     
     def _analyze_patch_error(self, error: str, patch_content: str) -> str:
         """Analyze patch error and provide specific feedback."""

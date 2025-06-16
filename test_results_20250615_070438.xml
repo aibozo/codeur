@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.703" timestamp="2025-06-15T07:04:38.223494-04:00" hostname="DESKTOP-1P5CD29"><testcase classname="" name="test_e2e_full_integration" time="0.000"><error message="collection failure">ImportError while importing test module '/home/riley/Programming/agent/tests/test_e2e_full_integration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.10/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_e2e_full_integration.py:39: in &lt;module&gt;
+    from src.core.agent_factory import IntegratedAgentFactory
+src/core/agent_factory.py:18: in &lt;module&gt;
+    from ..request_planner.integrated_request_planner import IntegratedRequestPlanner
+src/request_planner/__init__.py:11: in &lt;module&gt;
+    from .planner import RequestPlanner
+src/request_planner/planner.py:23: in &lt;module&gt;
+    from .llm import LLMClient
+src/request_planner/llm.py:20: in &lt;module&gt;
+    from src.llm import LLMClient as BaseLLMClient
+src/llm.py:14: in &lt;module&gt;
+    from src.core.resilient_llm import ResilientLLMClient
+src/core/resilient_llm.py:20: in &lt;module&gt;
+    from tenacity import (
+E   ImportError: cannot import name 'before_retry' from 'tenacity' (/home/riley/Programming/agent/venv/lib/python3.10/site-packages/tenacity/__init__.py)</error></testcase></testsuite></testsuites>

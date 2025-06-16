@@ -1,0 +1,55 @@
+
+
+task graph. 
+plan a way to extract from the planners/request prompt, all the tasks/subtasks that need completed. maybe implement a architect agent that would take over as the ux touchpoint for the task scheduler. the architect can create dynamic tasks using the o3 model and create task graphs with various tasks/subtasks for the task scheduler to use to plan how to schedule those tasks effectively. the task nodes can be ragged into context as well and we can index plan chunks from the architects context or plan files to them. so the full ux would be user talks to archit. architect plans refactor/scaffolding tasks/subtasks graph /plan files. that gets ragged. task scheduler sees active tasks/subtasks unclaimed and iteratively decides how to delegate those tasks to the code agents. so full tasks will be communities with subtask nodes. the tasks delegated come with the plan files associated as context for the scheduler. 
+
+
+architect context graph. deeply manage the context of the architect via a context graph with message nodes with summaries and embeddings. create communities with nlp to detect breaks in subtasks in messages. sparsification continually increases as we get further from the present. 5-10 full messages, then 10 node summaries, then 5 community summaries. all in sequence backwards. so context would be 
+[summary of project]
+[summary of old communities]
+[message n-11 to n-20 node summaries]
+[message n-1 to n-10 full node message content]
+
+
+Rag_critic
+I want to think of some system that can use an llm agent or deterministic programming to figure out the level of confidence we have that all of the current thresholds for RAG are giving the expected amount of context, and adjust the thresholds occasionally to try to optimize it on the fly for every other model. this seems like it could be complicated but we might be able to brainstorm some systems that could accomplish it. 
+
+deep research agent
+i have a deep research mcp server we could clone into the project and add into the pipeline. it will take refactoring. 
+https://github.com/aibozo/deepresearch-mcp
+
+generated code flow graphs visualization window with performance bottlenecks and edge wall times. (would likely need to be a generated test task that layed out specific outputs) if possible. then you can discuss the code with a review agent to get feedback on what parts of the code might be causing unexpectedly high wall times and optimization ideas. 
+
+
+multiple project tabs. maybe dynamically create new backends and link them to the frontend with unused localhost address. 
+all separate graphs
+
+
+gui based patch approval through a graph of tasks/subtasks panel or agent graph panel, or a panel that shows unapproved diffs with relevant info. also auto-mode where the architect reviews the changes. then in the message nodes, instead of the full diffs, we can add a "did diff review of x.py". 
+
+offshoot of the last part of that last idea. theres probably tons of micro summarizations we could do with dirt cheap models that would cut context costs for the main model. making the full message nodes slightly trimmed for irrelevant info to future decisions, while giving it the general episodic memory available. 
+
+have ux protocols for the architect for new codebases (empty directories or directories with plans etc), newly init codebase but existing (probably editing existing code), previously configured existing codebase. once it knows the state, it kicks claude off into one of 3 paths. 
+1) empty codebase, the architect will ask the user what the project dynamics are, if there are any plan files, or if they want to just talk about an idea to build up a plan. then once they decide planning is done task/subtask graph creation. 
+2) new codebase, the architect will do a similar setup, but focusing on what new features or improvements the user wants to add. plans integrated into task/subtask tree similarly. 
+3)existing, no immediate message. architect waits for new tasks. maybe with new tasks we also update the task/subtask tree/graph. 
+
+system wide project venv variable that makes all commands set through a venv if the project has one. persistent. (we can add other compatability but i use venv the most. 
+
+behavior loop- test doesn't run because dependency isn't met. error reported to test planner. test planner? i propose adds a subtask of first making sure venv was used.
+
+switch RAG retrieval to adaptive gate  that uses a running mean of semantic similarity and slide cutoff accordingly. for context graph retrieval and for all rag retrieval in the service.  
+
+chunked prompt caching of the codebase/plans using our rag chunks? 
+
+user access
+
+export/delete conversation. 
+
+reversion to conversation node with/without code reversion. async warning, revert all tasks started at and after that messages changes. other tasks changes will still be there. warn users during reversion. task reversion would be cleaner. 
+
+autoredact keys/secrets
+
+thorough redteaming of cost control. 
+
+data collection for finetuning of proprietary/oss model on long form agentic tasks specific to our environment. sell to companies. etc. 
