@@ -120,6 +120,25 @@ class CodingAgent:
             validation_result = None
             use_file_rewriter = False
             
+            # Check if this is a file creation task
+            is_file_creation = task.metadata.get("operation") == "create" or \
+                              task.metadata.get("file_operation") == "write"
+            
+            # For file creation, ensure files exist first
+            if is_file_creation and task.paths:
+                logger.info("File creation task detected, creating empty files...")
+                for file_path in task.paths:
+                    full_path = self.repo_path / file_path
+                    if not full_path.exists():
+                        full_path.parent.mkdir(parents=True, exist_ok=True)
+                        full_path.touch()
+                        result.add_note(f"Created empty file: {file_path}")
+                    else:
+                        result.add_note(f"File already exists: {file_path}")
+                
+                # Use file rewriter for new files
+                use_file_rewriter = True
+            
             for attempt in range(self.max_retries + 1):
                 logger.info(f"Patch generation attempt {attempt + 1}")
                 
@@ -400,7 +419,6 @@ Example:
             response = self.llm_client.generate_with_json(
                 prompt=refinement_prompt,
                 system_prompt="You are a coding assistant. Always read files before making changes to verify content and line numbers.",
-                max_tokens=1000,
                 temperature=0.1
             )
             

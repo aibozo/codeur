@@ -11,6 +11,13 @@ from typing import Optional, Tuple, List
 import tempfile
 import os
 
+try:
+    import git
+    GIT_PYTHON_AVAILABLE = True
+except ImportError:
+    git = None
+    GIT_PYTHON_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +41,15 @@ class GitOperations:
         # Verify it's a git repository
         if not (self.repo_path / ".git").exists():
             raise ValueError(f"{repo_path} is not a git repository")
+        
+        # Initialize GitPython repo if available
+        self.repo = None
+        if GIT_PYTHON_AVAILABLE:
+            try:
+                self.repo = git.Repo(str(self.repo_path))
+            except Exception as e:
+                logger.warning(f"Failed to initialize GitPython repo: {e}")
+                self.repo = None
     
     def get_current_branch(self) -> str:
         """Get the current branch name."""
@@ -182,6 +198,20 @@ class GitOperations:
             logger.error(f"Failed to create commit: {e}")
             return None
     
+    def commit_changes(self, message: str, author: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+        """
+        Create a commit (wrapper for commit method).
+        
+        Args:
+            message: Commit message
+            author: Author in "Name <email>" format
+            
+        Returns:
+            Tuple of (success, commit_sha)
+        """
+        commit_sha = self.commit(message, author)
+        return (commit_sha is not None, commit_sha)
+    
     def push_branch(self, branch_name: Optional[str] = None, force: bool = False) -> bool:
         """
         Push branch to remote.
@@ -248,6 +278,105 @@ class GitOperations:
                 
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to reset changes: {e}")
+    
+    def merge_branch(self, branch_name: str, no_ff: bool = True) -> Tuple[bool, str]:
+        """
+        Merge a branch into the current branch.
+        
+        Args:
+            branch_name: Name of the branch to merge
+            no_ff: Use --no-ff to create a merge commit even for fast-forward
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            # Check if branch exists
+            branches_result = self._run_git(["branch", "-a"])
+            if branch_name not in branches_result.stdout:
+                return False, f"Branch {branch_name} does not exist"
+            
+            # Perform merge
+            merge_args = ["merge", branch_name]
+            if no_ff:
+                merge_args.append("--no-ff")
+            merge_args.extend(["-m", f"Merge branch '{branch_name}'"])
+            
+            result = self._run_git(merge_args)
+            
+            # Check for conflicts
+            status_result = self._run_git(["status", "--porcelain"])
+            if status_result.stdout.strip():
+                # There are conflicts
+                return False, "Merge conflicts detected"
+            
+            logger.info(f"Successfully merged branch: {branch_name}")
+            return True, f"Merged {branch_name} successfully"
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to merge branch {branch_name}: {e.stderr}")
+            return False, f"Merge failed: {e.stderr}"
+    
+    def has_uncommitted_changes(self) -> bool:
+        """Check if there are uncommitted changes."""
+        result = self._run_git(["status", "--porcelain"])
+        return bool(result.stdout.strip())
+    
+    def get_current_commit_hash(self) -> str:
+        """Get the current commit hash."""
+        result = self._run_git(["rev-parse", "HEAD"])
+        return result.stdout.strip()
+    
+    def delete_branch(self, branch_name: str, force: bool = False) -> bool:
+        """
+        Delete a branch.
+        
+        Args:
+            branch_name: Name of the branch to delete
+            force: Force delete even if not merged
+            
+        Returns:
+            True if successful
+        """
+        try:
+            cmd = ["branch", "-d" if not force else "-D", branch_name]
+            self._run_git(cmd)
+            logger.info(f"Deleted branch: {branch_name}")
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to delete branch {branch_name}: {e}")
+            return False
+    
+    def find_commits_by_pattern(self, pattern: str, max_count: int = 10) -> List[str]:
+        """
+        Find commits with messages matching a pattern.
+        
+        Args:
+            pattern: Regex pattern to search for
+            max_count: Maximum number of commits to return
+            
+        Returns:
+            List of commit hashes
+        """
+        try:
+            result = self._run_git([
+                "log", 
+                f"--grep={pattern}", 
+                "--format=%H",
+                f"-{max_count}"
+            ])
+            return result.stdout.strip().split('\n') if result.stdout.strip() else []
+        except subprocess.CalledProcessError:
+            return []
+    
+    def stage_all_changes(self) -> bool:
+        """Stage all changes for commit."""
+        try:
+            self._run_git(["add", "-A"])
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to stage changes: {e}")
+            return False
     
     def _run_git(self, args: List[str], check: bool = True) -> subprocess.CompletedProcess:
         """

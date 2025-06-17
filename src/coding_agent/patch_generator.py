@@ -47,7 +47,6 @@ class PatchGenerator:
     def generate_patch(
         self,
         context: CodeContext,
-        max_tokens: int = 2000,
         temperature: float = 0.2
     ) -> PatchResult:
         """
@@ -55,7 +54,6 @@ class PatchGenerator:
         
         Args:
             context: The code context
-            max_tokens: Maximum tokens for generation
             temperature: LLM temperature (lower = more focused)
             
         Returns:
@@ -74,7 +72,6 @@ class PatchGenerator:
             # Call LLM
             response = self.llm_client.generate(
                 prompt=prompt,
-                max_tokens=max_tokens,
                 temperature=temperature,
                 system_prompt=self._get_system_prompt()
             )
@@ -90,13 +87,13 @@ class PatchGenerator:
                     success=True,
                     patch_content=patch_content,
                     files_modified=files_modified,
-                    tokens_used=len(prompt) // 4 + max_tokens  # Rough estimate
+                    tokens_used=len(prompt) // 4 + len(response) // 4  # TODO: Use tiktoken for accurate tokenization
                 )
             else:
                 return PatchResult(
                     success=False,
                     error_message="Failed to extract valid patch from LLM response",
-                    tokens_used=len(prompt) // 4 + max_tokens
+                    tokens_used=len(prompt) // 4  # TODO: Use tiktoken for accurate tokenization
                 )
                 
         except Exception as e:
@@ -110,8 +107,7 @@ class PatchGenerator:
         self,
         original_patch: str,
         error_message: str,
-        context: CodeContext,
-        max_tokens: int = 1500
+        context: CodeContext
     ) -> PatchResult:
         """
         Refine a patch based on validation errors.
@@ -120,7 +116,6 @@ class PatchGenerator:
             original_patch: The original patch that failed
             error_message: The validation error message
             context: The code context
-            max_tokens: Maximum tokens for generation
             
         Returns:
             PatchResult with refined patch
@@ -142,7 +137,6 @@ class PatchGenerator:
             # Call LLM with lower temperature for more focused fix
             response = self.llm_client.generate(
                 prompt=prompt,
-                max_tokens=max_tokens,
                 temperature=0.1,
                 system_prompt=self._get_refinement_system_prompt()
             )
@@ -157,13 +151,13 @@ class PatchGenerator:
                     success=True,
                     patch_content=patch_content,
                     files_modified=files_modified,
-                    tokens_used=len(prompt) // 4 + max_tokens
+                    tokens_used=len(prompt) // 4 + len(response) // 4  # TODO: Use tiktoken for accurate tokenization
                 )
             else:
                 return PatchResult(
                     success=False,
                     error_message="Failed to extract refined patch",
-                    tokens_used=len(prompt) // 4 + max_tokens
+                    tokens_used=len(prompt) // 4  # TODO: Use tiktoken for accurate tokenization
                 )
                 
         except Exception as e:
@@ -182,7 +176,7 @@ class PatchGenerator:
         prompt_parts.append("")
         
         # Context
-        context_str = context.to_prompt_context(max_tokens=2500)
+        context_str = context.to_prompt_context()
         prompt_parts.append("Context:")
         prompt_parts.append(context_str)
         prompt_parts.append("")
@@ -264,7 +258,9 @@ Generate a corrected unified diff patch that will pass validation."""
         matches = re.findall(diff_pattern, llm_response, re.DOTALL)
         
         if matches:
-            return matches[0].strip()
+            # Don't strip - preserve exact content
+            patch = matches[0].rstrip()  # Only remove trailing whitespace
+            return self._fix_patch_context_lines(patch)
         
         # Try to find patch content without code blocks
         lines = llm_response.split('\n')
@@ -272,7 +268,7 @@ Generate a corrected unified diff patch that will pass validation."""
         in_patch = False
         
         for line in lines:
-            # Skip code block markers that o3 might include
+            # Skip code block markers
             if line.strip() in ['```diff', '```']:
                 continue
                 
@@ -280,15 +276,61 @@ Generate a corrected unified diff patch that will pass validation."""
                 in_patch = True
             
             if in_patch:
-                if line.strip() and not line.startswith(('#', '//')):
-                    patch_lines.append(line)
-                elif patch_lines and line.strip() == '':
-                    patch_lines.append(line)
+                # Critical: preserve the line exactly as is, including space prefixes
+                # Only skip comment lines
+                if line.startswith(('#', '//')):
+                    continue
+                patch_lines.append(line)
         
         if patch_lines:
-            return '\n'.join(patch_lines)
+            # Join and ensure trailing newline
+            result = '\n'.join(patch_lines)
+            if not result.endswith('\n'):
+                result += '\n'
+            return self._fix_patch_context_lines(result)
         
         return None
+    
+    def _fix_patch_context_lines(self, patch_content: str) -> str:
+        """Fix patches that are missing space prefixes on context lines."""
+        if not patch_content:
+            return patch_content
+        
+        lines = patch_content.split('\n')
+        fixed_lines = []
+        in_hunk = False
+        
+        for line in lines:
+            if line.startswith(('---', '+++', 'diff --git', 'index ')):
+                # Header lines - keep as is
+                fixed_lines.append(line)
+                in_hunk = False
+            elif line.startswith('@@'):
+                # Hunk header - keep as is
+                fixed_lines.append(line)
+                in_hunk = True
+            elif in_hunk:
+                # Inside a hunk
+                if line.startswith(('+', '-')):
+                    # Add/remove lines - keep as is
+                    fixed_lines.append(line)
+                elif line == '':
+                    # Empty line might be context
+                    fixed_lines.append(' ')
+                elif not line.startswith(' '):
+                    # Context line missing space prefix
+                    fixed_lines.append(' ' + line)
+                else:
+                    # Already has proper prefix
+                    fixed_lines.append(line)
+            else:
+                # Outside hunk - keep as is
+                fixed_lines.append(line)
+        
+        result = '\n'.join(fixed_lines)
+        if not result.endswith('\n'):
+            result += '\n'
+        return result
     
     def _extract_modified_files(self, patch_content: str) -> List[str]:
         """Extract list of modified files from patch."""

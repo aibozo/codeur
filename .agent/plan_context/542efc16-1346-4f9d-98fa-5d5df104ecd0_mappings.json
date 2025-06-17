@@ -1,0 +1,114 @@
+{
+  "f93ba58a-56f8-4fd3-9c8b-43c515243b4d": {
+    "plan_id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+    "phase_id": "70e4fe03-6a7b-4bb8-8322-f697c8b6d3a7",
+    "milestone_id": "073f7f09-6c27-4138-abf4-0eab321782b8",
+    "chunk_id": "317e0fba-1ce0-45c8-9a9c-ca7e84d378e3",
+    "context_path": [
+      {
+        "type": "plan",
+        "id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+        "title": "User Authentication System"
+      },
+      {
+        "type": "phase",
+        "id": "70e4fe03-6a7b-4bb8-8322-f697c8b6d3a7",
+        "title": "Analysis & Design"
+      },
+      {
+        "type": "milestone",
+        "id": "073f7f09-6c27-4138-abf4-0eab321782b8",
+        "title": "Design Complete"
+      },
+      {
+        "type": "chunk",
+        "id": "317e0fba-1ce0-45c8-9a9c-ca7e84d378e3",
+        "title": "Requirements Analysis"
+      }
+    ]
+  },
+  "5c53d9f9-5b8a-4400-b946-cc6c0093847b": {
+    "plan_id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+    "phase_id": "70e4fe03-6a7b-4bb8-8322-f697c8b6d3a7",
+    "milestone_id": "073f7f09-6c27-4138-abf4-0eab321782b8",
+    "chunk_id": "71e35913-9ac6-4312-99bd-6e58ebac5362",
+    "context_path": [
+      {
+        "type": "plan",
+        "id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+        "title": "User Authentication System"
+      },
+      {
+        "type": "phase",
+        "id": "70e4fe03-6a7b-4bb8-8322-f697c8b6d3a7",
+        "title": "Analysis & Design"
+      },
+      {
+        "type": "milestone",
+        "id": "073f7f09-6c27-4138-abf4-0eab321782b8",
+        "title": "Design Complete"
+      },
+      {
+        "type": "chunk",
+        "id": "71e35913-9ac6-4312-99bd-6e58ebac5362",
+        "title": "Technical Design"
+      }
+    ]
+  },
+  "e860244a-e901-4211-b2dd-1cfbb07cba4a": {
+    "plan_id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+    "phase_id": "b9c92896-aa92-40f9-9604-e6ebd86bfcd0",
+    "milestone_id": "3ac1062f-1846-48ca-970c-5e7681fee1f6",
+    "chunk_id": "ae97668c-b7c5-4a4a-b3de-3156e3457958",
+    "context_path": [
+      {
+        "type": "plan",
+        "id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+        "title": "User Authentication System"
+      },
+      {
+        "type": "phase",
+        "id": "b9c92896-aa92-40f9-9604-e6ebd86bfcd0",
+        "title": "Implementation"
+      },
+      {
+        "type": "milestone",
+        "id": "3ac1062f-1846-48ca-970c-5e7681fee1f6",
+        "title": "Feature Implemented"
+      },
+      {
+        "type": "chunk",
+        "id": "ae97668c-b7c5-4a4a-b3de-3156e3457958",
+        "title": "Core Implementation"
+      }
+    ]
+  },
+  "e9a8cf56-ea03-426f-88c7-74e5661eb924": {
+    "plan_id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+    "phase_id": "d7a9b8be-945d-4f40-b5e1-7717e655552f",
+    "milestone_id": "503ead41-c977-4fc6-b8d1-9cb9cba26dd9",
+    "chunk_id": "7d4dee5e-6ae3-40de-8819-bf084f15b732",
+    "context_path": [
+      {
+        "type": "plan",
+        "id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+        "title": "User Authentication System"
+      },
+      {
+        "type": "phase",
+        "id": "d7a9b8be-945d-4f40-b5e1-7717e655552f",
+        "title": "Testing & Deployment"
+      },
+      {
+        "type": "milestone",
+        "id": "503ead41-c977-4fc6-b8d1-9cb9cba26dd9",
+        "title": "Feature Tested & Deployed"
+      },
+      {
+        "type": "chunk",
+        "id": "7d4dee5e-6ae3-40de-8819-bf084f15b732",
+        "title": "Comprehensive Testing"
+      }
+    ]
+  }
+}

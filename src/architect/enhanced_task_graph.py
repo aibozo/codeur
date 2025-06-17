@@ -90,6 +90,9 @@ class EnhancedTaskNode(BaseTaskNode):
     # Agent assignment
     assigned_agent: Optional[str] = None
     
+    # Additional metadata
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
     def add_subtask(self, subtask_id: str):
         """Add a subtask to this task."""
         self.subtask_ids.add(subtask_id)
@@ -122,6 +125,7 @@ class EnhancedTaskNode(BaseTaskNode):
             'expanded': self.expanded,
             'hidden': self.hidden,
             'assigned_agent': self.assigned_agent,
+            'metadata': self.metadata,
         })
         return base_dict
 

@@ -1,0 +1,349 @@
+Below is a **loop‑by‑loop drill‑down**—every agent, every state‑transition, and every message topic—so you can plot the *entire* lifecycle of each component and reason about hand‑offs, retries, and points of failure. For brevity I keep the prose tight and use **uniform section headers** so each loop spec is directly comparable.
+
+---
+
+## Legend (common to all diagrams)
+
+```
+( )  = state
+[ ]  = blocking action / RPC
+{ }  = conditional branch
+-->  = transition
+==>  = message publish
+```
+
+| Abbrev.   | Message Topic         | Type               |
+| --------- | --------------------- | ------------------ |
+| `CRQ`     | `change.request.in`   | `ChangeRequest`    |
+| `PLAN`    | `plan.out`            | `Plan`             |
+| `TASK`    | `code.task.out`       | `TaskBundle`       |
+| `CRES`    | `commit.result.out`   | `CommitResult`     |
+| `BREPORT` | `build.report.out`    | `BuildReport`      |
+| `TSPEC`   | `test.spec.out`       | `TestSpec`         |
+| `GTRES`   | `generated.tests.out` | `GeneratedTests`   |
+| `REG`     | `regression.out`      | `RegressionTicket` |
+
+---
+
+## 1  |  Request‑Planner Loop
+
+```
+(start)__on message CRQ
+   |
+   v
+(Pre‑flight) --{dup?}--> (Ack & Exit)
+   |
+   v
+[Clone repo at <branch>]  --timeout--> (Soft‑Fail Exit)
+   |
+   v
+[Query RAG for context]
+   |
+   v
+[LLM‑Plan]
+   |
+   v
+{schema‑OK?} --no--> (Re‑prompt ≤2)
+   |
+   v
+(Emit PLAN) ==> topic PLAN
+   |
+   v
+(Clean‑up & Exit)
+```
+
+**Retry strategy**
+
+| Stage     | Condition             | Attempts | Back‑off  |
+| --------- | --------------------- | -------- | --------- |
+| LLM‑Plan  | 5xx / schema mismatch | 2        | 3 s → 9 s |
+| RAG query | non‑200 / timeout     | 1        | 5 s       |
+
+**Termination codes**
+
+| Code | Meaning                |
+| ---- | ---------------------- |
+| 0    | Plan emitted           |
+| 10   | Duplicate request      |
+| 20   | Git clone failure      |
+| 30   | Irrecoverable LLM fail |
+
+---
+
+## 2  |  Code‑Planner Loop
+
+```
+(start)__on message PLAN
+   |
+   v
+(Expand each Step)
+   |
+   v
+[Resolve paths via RAG/Grep]
+   |
+   v
+[Build Call‑Graph] --{cycle?}--> (Force Sequential Flag)
+   |
+   v
+[LLM‑Skeleton (optional)]
+   |
+   v
+(Assemble TASK bundle)
+   |
+   v
+(Emit TASK) ==> topic TASK
+   |
+   v
+(Clean‑up & Exit)
+```
+
+**Concurrency note** – CPU‑bound call‑graph parse runs in process pool; I/O remains async.
+
+**Exit codes** — 0 success, 21 unresolved path, 22 dependency cycle.
+
+---
+
+## 3  |  Coding‑Agent Loop
+
+```
+(start)__on message TASK (one per CodingTask)
+   |
+   v
+[Gather Context] --timeout--> (Hard‑Fail)
+   |
+   v
+(loop begin)
+   |
+   v
+[Draft Patch (LLM)]
+   |
+   v
+{diff valid?}--no-->[re‑prompt] (≤1)
+   |
+   v
+[Apply patch] --reject--> (Hard‑Fail)
+   |
+   v
+[Run self‑checks]
+   |
+   v
+{all pass?}
+  |yes
+  v
+(Commit & Push)
+  |
+  v
+(Emit CRES SUCCESS) ==> topic CRES
+  |no
+  v
+{retry < MAX} --yes--> loop begin
+  |no
+  v
+(Emit CRES SOFT_FAIL)
+```
+
+`MAX_RETRIES` default = 2.
+
+**Self‑check tool chain order**
+
+1. `black`
+2. `isort`
+3. `ruff` (*low‑latency lint*)
+4. `pytest -q -m fast`
+
+Each step emits a span in OpenTelemetry trace.
+
+---
+
+## 4  |  Build/CI Runner Loop (B/CI)
+
+```
+(start)__on CRES SUCCESS or GTRES
+   |
+   v
+[Checkout commit]
+   |
+   v
+[Install deps (+cache restore)]
+   |
+   v
+[Run build & fast tests]
+   |
+   v
+[Collect coverage]
+   |
+   v
+(Upload artefact)  --on error--> (status ERRORED)
+   |
+   v
+(Emit BREPORT) ==> topic BREPORT
+   |
+   v
+(Exit)
+```
+
+**Parallel shards** – if repo labels **ci‑matrix.yaml**, the Orchestrator spins N runner jobs and merges their `BuildReportShard` into one `BREPORT`.
+
+---
+
+## 5  |  Test‑Planner Loop
+
+```
+(start)__on BREPORT PASSED
+   |
+   v
+[Determine coverage gaps]
+   |
+   v
+[Query RAG for modified code]
+   |
+   v
+[LLM generate TestSpec JSON]
+   |
+   v
+{schema‑valid?}--no--> retry (≤1)
+   |
+   v
+(Emit TSPEC) ==> topic TSPEC
+   |
+   v
+(Exit)
+```
+
+---
+
+## 6  |  Test‑Builder Loop
+
+```
+(start)__on TSPEC
+   |
+   v
+[Hydrate context via RAG]
+   |
+   v
+(loop)
+   |
+   v
+[LLM draft tests (unified diff)]
+   |
+   v
+{diff valid?}--no--> re‑prompt (≤1)
+   |
+   v
+[Apply patch]
+   |
+   v
+[Self‑check (pytest fast + ruff on tests)]
+   |
+   v
+{pass?}
+  |yes
+  v
+(Commit & Push)
+  |
+  v
+(Emit GTRES precheck=PASSED)
+  |no
+  v
+{retry < 2}--yes--> loop
+  |no
+  v
+(Emit GTRES precheck=FAILED)
+```
+
+---
+
+## 7  |  Verifier Loop (long‑lived)
+
+```
+(start)__daemon
+   |
+   v
+(subscribe BREPORT stream)
+   |
+   v
+{BREPORT FAILED or ERRORED?}
+  |no                 |yes
+  v                  (Generate RegressionTicket)
+(wait)                |
+                      v
+               (Emit REG) ==> topic REG
+                      |
+                      v
+                 (Alert & Exit)
+```
+
+If a `REG` ticket is emitted, the **Request‑Planner** is re‑invoked with an auto‑generated *“Fix regression introduced in commit X‑Y‑Z”* `ChangeRequest`.
+
+---
+
+## 8  |  Orchestrator State Machine (macro controller)
+
+```
+(idle) --CRQ--> (plan_phase)
+ plan_phase --PLAN--> (code_phase)
+ code_phase:
+   wait for all TASK➜CRES
+   {any HARD_FAIL?} yes→ abort & REG
+   else→ (build_phase_1)
+
+ build_phase_1 --BREPORT PASSED--> (test_plan_phase)
+               --FAILED--> REG
+
+ test_plan_phase --TSPEC--> (test_build_phase)
+ test_build_phase:
+   wait GTRES
+   {precheck FAILED?} yes→ REG
+   else→ (build_phase_2)
+
+ build_phase_2 --BREPORT PASSED--> (merge & success)
+               --FAILED--> REG
+```
+
+---
+
+## 9  |  Cross‑cutting SLAs
+
+| Loop            | p95 Duration | Maximum Retries | Kill‑Switch     |
+| --------------- | ------------ | --------------- | --------------- |
+| Request‑Planner | 3 s          | 2 (LLM)         | 30 s hard limit |
+| Code‑Planner    | 4 s          | 1               | 45 s            |
+| Coding‑Agent    | 40 s         | 2               | 4 min           |
+| Build/CI        | 10 min       | 0 †             | 15 min          |
+| Test‑Planner    | 5 s          | 1               | 30 s            |
+| Test‑Builder    | 60 s         | 2               | 6 min           |
+
+† A failed build is not retried by the same runner; the Verifier initiates a new change‑request cycle.
+
+---
+
+## 10  |  Unified Trace Schema
+
+Every agent emits OpenTelemetry spans with these minimum attributes:
+
+| Attribute           | Example                   |
+| ------------------- | ------------------------- |
+| `agent.name`        | `coding-agent`            |
+| `agent.version`     | `1.0.3`                   |
+| `task.id`           | `TASK‑1234`               |
+| `plan.id`           | `PLAN‑42`                 |
+| `commit.sha`        | `afe3b97` (if applicable) |
+| `retry.count`       | `1`                       |
+| `loop.stage`        | `selfcheck.pytest`        |
+| `rag.docs`          | `8`                       |
+| `llm.tokens.prompt` | `1024`                    |
+| `llm.tokens.compl.` | `256`                     |
+
+With trace‑level correlation IDs you can reconstruct **any failure path** from change‑request to regression ticket.
+
+---
+
+### How to plot the flows
+
+* **Mermaid** – drop each ASCII block into `flowchart TD` or `sequenceDiagram` as shown; copy‑paste into your documentation generator.
+* **PlantUML** – swap `-->` with `-->` and wrap states with `state`.
+* **Temporal Workflow UI** – map each loop to a child workflow; the above state machine becomes the Temporal parent roadmap.
+
+---
+
+#### You now have line‑by‑line loop definitions, state machines, and message contracts for **every agent** in the architecture.  Feed these diagrams into your doc site or orchestration layer and the self‑healing pipeline is fully specified—end to end.

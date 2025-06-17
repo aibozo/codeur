@@ -200,7 +200,18 @@ Planning approach:
 - Start by understanding the current code structure
 - Create atomic, testable steps
 - Consider edge cases and error handling
-- Include test updates when modifying functionality"""
+- Include test updates when modifying functionality
+
+Test Planning Guidelines:
+- ALWAYS create separate test steps (kind: "test") for new functionality
+- Tests should validate all code changes comprehensively
+- Include specific test scenarios in hints:
+  * Happy path cases
+  * Edge cases and error conditions
+  * Integration points
+- Prefer minimal mocks - test with real implementations when possible
+- Consider both unit tests and integration tests where appropriate
+- Test tasks should be granular - one test step per feature/method when complex"""
     
     def _get_user_prompt(
         self, 
@@ -231,12 +242,24 @@ Please analyze this request and create a detailed implementation plan. Consider:
 2. Which files will be affected
 3. The order of implementation steps
 4. Any potential risks or dependencies
-5. Testing requirements
+5. Comprehensive testing requirements
+
+Test Planning Requirements:
+- For each new feature or method, create a dedicated test step
+- Specify test file locations (e.g., tests/test_feature.py)
+- Include concrete test scenarios in hints:
+  * What inputs to test
+  * Expected outputs/behaviors
+  * Error cases to validate
+- When multiple methods are added, consider separate test steps for clarity
+- Example: "Add tests for power method" and "Add tests for square_root method" as separate steps
 
 Think through the problem step-by-step:
 - First, understand what currently exists
 - Then, identify what needs to change
-- Finally, create a logical sequence of steps
+- Create implementation steps
+- Plan comprehensive test coverage
+- Finally, order steps logically with dependencies
 
 Generate a comprehensive plan that a developer can follow.
 

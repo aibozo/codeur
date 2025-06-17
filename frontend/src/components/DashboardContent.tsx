@@ -3,6 +3,7 @@ import AgentCard from './AgentCard';
 import MetricsOverview from './MetricsOverview';
 import PerformanceChart from './PerformanceChart';
 import SystemStatus from './SystemStatus';
+import GitWorkflowView from './GitWorkflowView';
 import { ChevronDown } from 'lucide-react';
 
 const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void }> = ({ label, isActive, onClick }) => (
@@ -23,7 +24,7 @@ const FilterButton: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const DashboardContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'performance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'git'>('overview');
 
   return (
     <div className="space-y-6 lg:space-y-8">
@@ -31,6 +32,7 @@ const DashboardContent: React.FC = () => {
         <div className="flex items-center space-x-2 bg-slate-800 p-1 rounded-xl">
           <TabButton label="Overview" isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
           <TabButton label="Performance" isActive={activeTab === 'performance'} onClick={() => setActiveTab('performance')} />
+          <TabButton label="Git" isActive={activeTab === 'git'} onClick={() => setActiveTab('git')} />
         </div>
       </div>
 
@@ -129,6 +131,17 @@ const DashboardContent: React.FC = () => {
                 <p className="text-gray-500">Performance Metric {i}</p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'git' && (
+        <div className="space-y-6 lg:space-y-8">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-6">Git Workflow Management</h2>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
+              <GitWorkflowView className="xl:col-span-2" />
+            </div>
           </div>
         </div>
       )}

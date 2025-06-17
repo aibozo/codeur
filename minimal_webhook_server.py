@@ -96,6 +96,8 @@ analyzer = None
 change_tracker = None
 active_task_graphs = {}
 tts_voice_mode = None
+git_workflow = None
+agent_factory = None
 
 # Health check
 @app.get("/health")
@@ -231,7 +233,7 @@ async def get_metric_history(metric_name: str, window: str = "5m", hours: int = 
 # Project endpoints
 @app.post("/api/project/initialize")
 async def initialize_project(request: ProjectInitRequest):
-    global active_project, security_manager, architect, analyzer, change_tracker
+    global active_project, security_manager, architect, analyzer, change_tracker, git_workflow, agent_factory
     
     logger.info(f"[INIT] Starting project initialization for: {request.project_path}")
     
@@ -288,8 +290,9 @@ async def initialize_project(request: ProjectInitRequest):
         # Initialize architect for the project
         logger.info("[INIT] Initializing architect...")
         try:
-            architect = Architect(str(project_path))
-            logger.info("[INIT] ✓ Architect initialized")
+            # Try with auto_index=False first to avoid ChromaDB issues
+            architect = Architect(str(project_path), auto_index=False, rag_service=None)
+            logger.info("[INIT] ✓ Architect initialized (without RAG)")
         except Exception as e:
             logger.error(f"[INIT] ✗ Architect failed: {e}")
             architect = None
@@ -298,9 +301,9 @@ async def initialize_project(request: ProjectInitRequest):
         # Initialize analyzer for automatic architecture analysis
         logger.info("[INIT] Initializing analyzer...")
         try:
-            # Set auto_analyze=False to prevent blocking
-            analyzer = Analyzer(str(project_path), auto_analyze=False)
-            logger.info("[INIT] ✓ Analyzer initialized")
+            # Set auto_analyze=False and no RAG to avoid ChromaDB issues
+            analyzer = Analyzer(str(project_path), auto_analyze=False, rag_service=None)
+            logger.info("[INIT] ✓ Analyzer initialized (without RAG)")
             # Start analysis in background
             asyncio.create_task(_analyze_with_logging())
         except Exception as e:
@@ -308,6 +311,23 @@ async def initialize_project(request: ProjectInitRequest):
             analyzer = None
             # Continue without it
         
+        # Initialize integrated agent system with git workflow
+        logger.info("[INIT] Initializing integrated agent system...")
+        try:
+            from src.core.agent_factory import create_integrated_agent_system
+            system = await create_integrated_agent_system(str(project_path))
+            
+            agent_factory = system["factory"]
+            git_workflow = system["git_workflow"]
+            
+            # Start a working session
+            working_branch = await agent_factory.start_session(user_id="dashboard_user")
+            logger.info(f"[INIT] ✓ Started working session on branch: {working_branch}")
+            
+        except Exception as e:
+            logger.error(f"[INIT] Agent system initialization failed: {e}")
+            # Continue without it for now
+            
         # Start indexing simulation
         logger.info("[INIT] Starting indexing simulation...")
         asyncio.create_task(_simulate_indexing())
@@ -444,7 +464,21 @@ async def architect_chat(request: ArchitectChatRequest):
     try:
         # Initialize architect if needed
         if not architect and active_project:
-            architect = Architect(active_project.project_path)
+            try:
+                logger.info("[ARCHITECT CHAT] Initializing architect...")
+                architect = Architect(active_project.project_path, auto_index=False)
+                logger.info("[ARCHITECT CHAT] Architect initialized successfully")
+            except Exception as e:
+                logger.error(f"[ARCHITECT CHAT] Failed to initialize architect: {e}")
+                # Try without RAG
+                try:
+                    logger.info("[ARCHITECT CHAT] Retrying without RAG...")
+                    from src.architect.architect import Architect as ArchitectNoRAG
+                    architect = ArchitectNoRAG(active_project.project_path, rag_service=None, auto_index=False)
+                    logger.info("[ARCHITECT CHAT] Architect initialized without RAG")
+                except Exception as e2:
+                    logger.error(f"[ARCHITECT CHAT] Failed even without RAG: {e2}")
+                    architect = None
         
         response_content = ""
         
@@ -459,12 +493,26 @@ async def architect_chat(request: ArchitectChatRequest):
             # Use LLM for chat
             try:
                 # Build conversation history with voice-friendly prompt if needed
-                system_prompt = """You are an expert software architect AI assistant. You help users:
-                        - Design system architectures
-                        - Create task dependency graphs
-                        - Plan project phases and milestones
-                        - Define component interfaces and data flows
-                        - Make technology recommendations
+                system_prompt = """You are an expert software architect AI assistant with access to specialized tools.
+
+Your capabilities:
+- Design system architectures
+- Create task dependency graphs
+- Plan project phases and milestones
+- Define component interfaces and data flows
+- Make technology recommendations
+
+Available tools:
+1. **create_tasks** - Create tasks using markdown, list, or yaml format. Supports hierarchical task structures, dependencies, priorities, and time estimates.
+   Example: "Create tasks for user authentication system with login, registration, and password reset"
+
+2. **update_task** - Update existing task details including status, priority, or estimates.
+   Example: "Update task 'Database Setup' to high priority"
+
+3. **query_status** - Get current project status and task progress.
+   Example: "Show me the current project status"
+
+When users ask you to plan tasks, create architectures, or organize work, mention that you can use these tools to help structure their project.
                         
                         """
                 
@@ -506,7 +554,8 @@ async def architect_chat(request: ArchitectChatRequest):
                             context += f"- {impl['file']}: {impl['symbols']}\n"
                         messages[-1]['content'] += context
                 
-                logger.info(f"[ARCHITECT CHAT] Using LLM model: {architect.llm_client.model_card.model_id}")
+                logger.info(f"[ARCHITECT CHAT] Using LLM model: {architect.llm_client.model_card.display_name} ({architect.llm_client.model_card.model_id})")
+                logger.info(f"[ARCHITECT CHAT] Model provider: {architect.llm_client.model_card.provider}")
                 
                 # Convert messages to prompt format for LLMClient
                 system_msg = next((m['content'] for m in messages if m['role'] == 'system'), None)
@@ -943,6 +992,100 @@ async def reset_change_metrics():
         "status": "success",
         "message": "Change metrics reset"
     }
+
+# Git Workflow endpoints
+@app.get("/api/git/history")
+async def get_git_history(max_commits: int = 20):
+    """Get visual git history."""
+    global git_workflow
+    
+    if not git_workflow:
+        return {"error": "Git workflow not initialized"}
+    
+    try:
+        history = git_workflow.get_visual_history(max_commits)
+        return {
+            "status": "success",
+            "history": history,
+            "max_commits": max_commits
+        }
+    except Exception as e:
+        logger.error(f"Get git history error: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/git/checkpoint")
+async def create_git_checkpoint(request: Dict[str, str]):
+    """Create a git checkpoint."""
+    global agent_factory
+    
+    if not agent_factory:
+        return {"error": "Agent factory not initialized"}
+    
+    description = request.get("description", "Manual checkpoint")
+    
+    try:
+        checkpoint = await agent_factory.create_checkpoint(description)
+        return {
+            "status": "success",
+            "checkpoint": checkpoint
+        }
+    except Exception as e:
+        logger.error(f"Create checkpoint error: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.get("/api/git/branches")
+async def get_git_branches():
+    """Get current git branches and their status."""
+    global git_workflow
+    
+    if not git_workflow:
+        return {"error": "Git workflow not initialized"}
+    
+    try:
+        # Get current branch info
+        current_branch = git_workflow.git_ops.get_current_branch()
+        
+        # Get all branches
+        result = git_workflow.git_ops._run_git(["branch", "-a"])
+        branches = []
+        
+        for line in result.stdout.split('\n'):
+            line = line.strip()
+            if line:
+                is_current = line.startswith('*')
+                branch_name = line.replace('* ', '').replace('  ', '')
+                if not branch_name.startswith('remotes/'):
+                    branches.append({
+                        "name": branch_name,
+                        "current": is_current,
+                        "type": _classify_branch(branch_name)
+                    })
+        
+        return {
+            "status": "success",
+            "current_branch": current_branch,
+            "branches": branches
+        }
+    except Exception as e:
+        logger.error(f"Get branches error: {e}")
+        return {"error": str(e), "status": "error"}
+
+def _classify_branch(branch_name: str) -> str:
+    """Classify branch by its naming convention."""
+    if branch_name in ["main", "master"]:
+        return "main"
+    elif branch_name.startswith("working/"):
+        return "working"
+    elif branch_name.startswith("task/"):
+        return "task"
+    elif branch_name.startswith("feature/"):
+        return "feature"
+    elif branch_name.startswith("fix/"):
+        return "fix"
+    elif branch_name.startswith("checkpoint/"):
+        return "checkpoint"
+    else:
+        return "other"
 
 # WebSocket endpoint
 @app.websocket("/ws")

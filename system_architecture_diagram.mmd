@@ -1,0 +1,180 @@
+graph TB
+    %% External Interfaces
+    User[👤 User]
+    Frontend[🖥️ React Frontend<br/>Dashboard]
+    WebhookAPI[🌐 Webhook API<br/>External Integrations]
+    
+    %% Core Infrastructure Layer
+    subgraph "Core Infrastructure"
+        MessageBus[📡 Message Bus<br/>Pub/Sub System]
+        EventBridge[🌉 Event Bridge<br/>WebSocket Integration]
+        AgentRegistry[📋 Agent Registry<br/>State Management]
+        TaskScheduler[⚡ Task Scheduler<br/>Assignment Logic]
+        
+        %% Git and Branch Management
+        GitWorkflow[🔀 Git Workflow<br/>Branch Management]
+        BranchManager[🌿 Branch Manager<br/>Legacy Git Ops]
+        
+        %% Monitoring and Quality
+        FlowTracker[📊 Flow Tracker<br/>Agent Communication]
+        ChangeTracker[👁️ Change Tracker<br/>File Monitoring]
+        MetricsCollector[📈 Metrics Collector<br/>System Resources]
+        
+        %% Self-Healing Infrastructure
+        SelfHealingCoordinator[🔧 Self-Healing<br/>Coordinator]
+        RetryHandlers[🔄 Retry Handlers<br/>Fault Tolerance]
+    end
+    
+    %% RAG Service Layer
+    subgraph "RAG Knowledge System"
+        RAGService[🧠 RAG Service<br/>Core Orchestrator]
+        
+        %% RAG Components
+        Chunker[✂️ Code Chunker<br/>Semantic Parsing]
+        Embeddings[🔗 Embeddings Service<br/>OpenAI Integration]
+        VectorStore[🗄️ Vector Store<br/>ChromaDB]
+        SearchEngine[🔍 Search Engine<br/>Hybrid Search]
+        
+        %% RAG Clients
+        BasicRAGClient[📱 Basic RAG Client<br/>Core Interface]
+        AdaptiveRAGClient[🎯 Adaptive RAG Client<br/>Quality Learning]
+        RetryEnhancedRAGClient[🛡️ Retry Enhanced Client<br/>Fault Tolerance]
+    end
+    
+    %% Agent Factory and Management
+    subgraph "Agent Factory & Context"
+        AgentFactory[🏭 Agent Factory<br/>Service Injection]
+        AgentContext[📋 Agent Context<br/>Shared Services]
+        IntegratedAgentBase[🔗 Integrated Agent Base<br/>Common Integration]
+    end
+    
+    %% Specialized Agents
+    subgraph "Orchestration Agents"
+        RequestPlanner[🎯 Request Planner<br/>Natural Language → Plans]
+        Architect[🏗️ Architect Agent<br/>System Design & Tasks]
+    end
+    
+    subgraph "Implementation Agents"
+        CodingAgent[💻 Coding Agent<br/>Code Generation]
+        TestAgent[🧪 Test Agent<br/>Test Generation & Execution]
+        CodePlanner[📋 Code Planner<br/>Implementation Planning]
+    end
+    
+    subgraph "Analysis Agents"
+        AnalyzerAgent[🔍 Analyzer Agent<br/>Architecture Analysis]
+    end
+    
+    %% Task Management System
+    subgraph "Task Graph System"
+        TaskGraphManager[📊 Task Graph Manager<br/>Hierarchical Tasks]
+        EnhancedTaskGraph[🌐 Enhanced Task Graph<br/>Dependencies & Communities]
+        CommunityDetector[🤝 Community Detector<br/>Task Clustering]
+    end
+    
+    %% Data Flow Connections
+    
+    %% User Interactions
+    User --> Frontend
+    User --> WebhookAPI
+    Frontend -.->|WebSocket| EventBridge
+    WebhookAPI --> RequestPlanner
+    
+    %% Core Infrastructure Connections
+    EventBridge --> MessageBus
+    MessageBus --> AgentRegistry
+    MessageBus --> FlowTracker
+    AgentRegistry --> TaskScheduler
+    
+    %% Agent Factory System
+    AgentFactory --> AgentContext
+    AgentContext --> IntegratedAgentBase
+    AgentContext --> GitWorkflow
+    AgentContext --> BranchManager
+    
+    %% RAG Service Internal Flow
+    RAGService --> Chunker
+    RAGService --> Embeddings
+    RAGService --> VectorStore
+    RAGService --> SearchEngine
+    Chunker --> VectorStore
+    Embeddings --> VectorStore
+    VectorStore --> SearchEngine
+    
+    %% RAG Client Hierarchy
+    BasicRAGClient --> RAGService
+    AdaptiveRAGClient --> BasicRAGClient
+    RetryEnhancedRAGClient --> AdaptiveRAGClient
+    
+    %% Agent Creation and Integration
+    IntegratedAgentBase --> RequestPlanner
+    IntegratedAgentBase --> Architect
+    IntegratedAgentBase --> CodingAgent
+    IntegratedAgentBase --> TestAgent
+    IntegratedAgentBase --> AnalyzerAgent
+    IntegratedAgentBase --> CodePlanner
+    
+    %% Task System Integration
+    Architect --> TaskGraphManager
+    TaskGraphManager --> EnhancedTaskGraph
+    EnhancedTaskGraph --> CommunityDetector
+    TaskGraphManager --> TaskScheduler
+    
+    %% Agent Communication Flow
+    RequestPlanner -->|Creates Tasks| TaskGraphManager
+    TaskScheduler -->|Assigns Tasks| CodingAgent
+    TaskScheduler -->|Assigns Tasks| TestAgent
+    TaskScheduler -->|Assigns Tasks| AnalyzerAgent
+    TaskScheduler -->|Requests Plans| CodePlanner
+    
+    %% RAG Integration with Agents
+    RequestPlanner -.->|Search Similar Plans| RetryEnhancedRAGClient
+    Architect -.->|Architecture Context| RetryEnhancedRAGClient
+    CodingAgent -.->|Implementation Patterns| RetryEnhancedRAGClient
+    TestAgent -.->|Test Patterns| RetryEnhancedRAGClient
+    AnalyzerAgent -.->|Store Analysis| RetryEnhancedRAGClient
+    CodePlanner -.->|Planning Context| RetryEnhancedRAGClient
+    
+    %% Inter-Agent Communication
+    RequestPlanner -->|Planning Events| MessageBus
+    Architect -->|Task Events| MessageBus
+    CodingAgent -->|Code Events| MessageBus
+    TestAgent -->|Test Events| MessageBus
+    AnalyzerAgent -->|Analysis Events| MessageBus
+    
+    %% Agent Coordination Patterns
+    CodingAgent -.->|Implementation Context| TestAgent
+    AnalyzerAgent -.->|Architecture Insights| Architect
+    CodePlanner -.->|Detailed Plans| CodingAgent
+    
+    %% Git Integration
+    CodingAgent --> GitWorkflow
+    CodingAgent --> BranchManager
+    GitWorkflow --> ChangeTracker
+    
+    %% Monitoring Integration
+    MessageBus --> FlowTracker
+    AgentRegistry --> MetricsCollector
+    ChangeTracker --> AnalyzerAgent
+    
+    %% Self-Healing Integration
+    RetryHandlers --> SelfHealingCoordinator
+    SelfHealingCoordinator -.->|Recovery Actions| MessageBus
+    
+    %% Event Flow to Frontend
+    MessageBus --> EventBridge
+    EventBridge -.->|Real-time Updates| Frontend
+    
+    %% Styling
+    classDef userInterface fill:#e1f5fe,stroke:#01579b,color:#000
+    classDef infrastructure fill:#f3e5f5,stroke:#4a148c,color:#000
+    classDef ragSystem fill:#e8f5e8,stroke:#1b5e20,color:#000
+    classDef agents fill:#fff3e0,stroke:#e65100,color:#000
+    classDef taskSystem fill:#fce4ec,stroke:#880e4f,color:#000
+    classDef gitSystem fill:#f1f8e9,stroke:#33691e,color:#000
+    
+    class User,Frontend,WebhookAPI userInterface
+    class MessageBus,EventBridge,AgentRegistry,TaskScheduler,FlowTracker,ChangeTracker,MetricsCollector,SelfHealingCoordinator,RetryHandlers infrastructure
+    class RAGService,Chunker,Embeddings,VectorStore,SearchEngine,BasicRAGClient,AdaptiveRAGClient,RetryEnhancedRAGClient ragSystem
+    class RequestPlanner,Architect,CodingAgent,TestAgent,AnalyzerAgent,CodePlanner,AgentFactory,AgentContext,IntegratedAgentBase agents
+    class TaskGraphManager,EnhancedTaskGraph,CommunityDetector taskSystem
+    class GitWorkflow,BranchManager gitSystem

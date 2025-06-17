@@ -1,0 +1,31 @@
+{
+  "plans": {
+    "fc0f45db-b6b9-414a-8690-90865ad10856": {
+      "title": "Test Plan",
+      "description": "A test implementation plan",
+      "status": "draft",
+      "project_id": "test_project",
+      "created_at": "2025-06-17T10:06:49.967641",
+      "updated_at": "2025-06-17T10:06:49.967662",
+      "file_path": ".agent/plans/active/fc0f45db-b6b9-414a-8690-90865ad10856.json",
+      "total_tasks": 1,
+      "total_chunks": 1,
+      "total_phases": 1
+    },
+    "542efc16-1346-4f9d-98fa-5d5df104ecd0": {
+      "title": "User Authentication System",
+      "description": "Add comprehensive user authentication to the web application",
+      "status": "active",
+      "project_id": "web_app",
+      "created_at": "2025-06-17T10:07:29.986699",
+      "updated_at": "2025-06-17T10:07:29.986807",
+      "file_path": ".agent/plans/active/542efc16-1346-4f9d-98fa-5d5df104ecd0.json",
+      "total_tasks": 4,
+      "total_chunks": 4,
+      "total_phases": 3
+    }
+  },
+  "created_at": "2025-06-17T10:06:49.437963",
+  "last_updated": "2025-06-17T10:07:29.989441",
+  "version": "1.0.0"
+}

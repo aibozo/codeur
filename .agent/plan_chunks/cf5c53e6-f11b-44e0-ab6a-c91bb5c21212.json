@@ -1,0 +1,68 @@
+{
+  "id": "cf5c53e6-f11b-44e0-ab6a-c91bb5c21212",
+  "plan_id": "fc0f45db-b6b9-414a-8690-90865ad10856",
+  "phase_id": "f6800540-c7ca-487d-949e-e5a0ee760df0",
+  "milestone_id": "995383c1-3d0e-47c9-8f3d-16e933aed8bb",
+  "title": "Test Chunk",
+  "description": "A test implementation chunk",
+  "chunk_type": "feature",
+  "context": {
+    "technologies": [],
+    "dependencies": [],
+    "constraints": [],
+    "stakeholders": [],
+    "requirements": [],
+    "acceptance_criteria": [],
+    "affected_files": [],
+    "related_components": [],
+    "integration_points": [],
+    "performance_requirements": [],
+    "security_considerations": [],
+    "scalability_factors": [],
+    "metadata": {}
+  },
+  "rationale": "",
+  "tasks": [
+    {
+      "id": "61f83e15-a5bc-47ed-99bd-3b163ef32533",
+      "title": "Test Task",
+      "description": "A test task",
+      "category": "implementation",
+      "context": {
+        "technologies": [],
+        "dependencies": [],
+        "constraints": [],
+        "stakeholders": [],
+        "requirements": [],
+        "acceptance_criteria": [],
+        "affected_files": [],
+        "related_components": [],
+        "integration_points": [],
+        "performance_requirements": [],
+        "security_considerations": [],
+        "scalability_factors": [],
+        "metadata": {}
+      },
+      "depends_on": [],
+      "blocks": [],
+      "agent_type": "coding_agent",
+      "estimated_effort": null,
+      "complexity": "medium",
+      "status": "draft",
+      "created_at": "2025-06-17T10:06:49.967701",
+      "updated_at": "2025-06-17T10:06:49.967701",
+      "related_issues": [],
+      "documentation_refs": [],
+      "code_refs": []
+    }
+  ],
+  "created_at": "2025-06-17T10:06:49.967690",
+  "updated_at": "2025-06-17T10:06:49.967703",
+  "plan_context": {
+    "title": "Test Plan",
+    "description": "A test implementation plan",
+    "phase_title": "Test Phase",
+    "milestone_title": "Test Milestone"
+  },
+  "searchable_content": "Plan: Test Plan\nPhase: Test Phase\nMilestone: Test Milestone\nChunk: Test Chunk\nType: feature\nDescription: A test implementation chunk\nRationale: \nTask: Test Task\nTask Description: A test task\nAgent: coding_agent"
+}

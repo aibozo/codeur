@@ -91,26 +91,107 @@ The project implements a multi-agent AI system designed to automate software dev
 - Works with Change Tracker
 
 ### 4. ANALYZER AGENT (src/analyzer/)
-**Purpose**: Automatic architecture analysis and documentation
+**Purpose**: Automatic architecture analysis and documentation with dynamic summaries and flowcharts
 
 **Key Files**:
 - `analyzer.py`: Main analysis orchestrator
-- `models.py`: Data structures for architecture representation
+- `models.py`: Data structures for architecture representation (includes `to_mermaid()` method)
+
+**Key Features**:
+- **Dynamic Architecture Summaries**: Generates markdown summaries with insights, warnings, and recommendations
+- **Mermaid Flowchart Generation**: Creates visual architecture diagrams showing components and dependencies
+- **Pattern Detection**: Identifies MVC, Repository, Service Layer patterns
+- **Technology Detection**: Recognizes frameworks (React, Flask, Spring, etc.)
+- **Component Classification**: Services, Controllers, Models, Views, Repositories, Entry Points
+- **Dependency Analysis**: Maps imports and relationships between components
 
 **How it Works**:
 1. Discovers components based on file patterns
-2. Analyzes dependencies through imports
-3. Detects architectural patterns
-4. Generates reports and visualizations
-5. Monitors changes for re-analysis triggers
-6. Creates Mermaid diagrams
+2. Analyzes dependencies through imports (AST parsing for Python, regex for JS/TS/Java)
+3. Detects architectural patterns and technologies
+4. Generates `AnalysisReport` with insights
+5. Creates Mermaid diagrams via `ArchitectureGraph.to_mermaid()`
+6. Saves analysis to `.architecture/` directory
+7. Can be triggered manually or by change thresholds
+
+**Integration with Architect**:
+- Architect now initializes Analyzer on startup
+- Architecture summary and diagram are loaded into Architect's system prompt
+- Provides `refresh_architecture_analysis()` method for on-demand updates
+- Enriches Architect's understanding of the codebase structure
+
+**Output Files**:
+- `.architecture/ARCHITECTURE.md`: Markdown summary with insights
+- `.architecture/architecture-diagram.mmd`: Mermaid diagram file
+- `.architecture/architecture-report.json`: Full analysis report
+
+**API Endpoints** (in minimal_webhook_server.py):
+- `GET /api/analyzer/diagram`: Returns Mermaid diagram
+- `POST /api/analyzer/refresh`: Forces analysis refresh
+- `GET /api/analyzer/summary`: Returns markdown summary
 
 **Connections**:
-- Integrates with Change Tracker
-- Can update RAG with analysis results
-- Provides data for frontend visualization
+- Integrates with Change Tracker for automatic re-analysis
+- Updates RAG with analysis results
+- Provides data for frontend ArchitectureDiagram component
+- Now integrated into Architect's system prompt for enhanced context
 
-### 5. RAG SERVICE (src/rag_service/)
+### 5. TEST AGENT (src/test_agent/)
+**Purpose**: Intelligent test generation, execution, and adaptation
+
+**Key Files**:
+- `test_agent.py`: Test generation and planning logic
+- `test_executor.py`: Test execution and failure analysis
+- `integrated_test_agent.py`: Full system integration
+- `models.py`: Test strategies and result structures
+
+**Architecture**:
+The Test Agent uses a two-component design:
+1. **TestAgent**: Plans and generates tests using LLM
+2. **TestExecutor**: Runs tests and filters/summarizes results
+
+**Key Features**:
+- **LLM-Based Test Generation**: Creates comprehensive tests with minimal mocks
+- **Smart Failure Analysis**: Determines if failures are due to:
+  - Test issues (assertions, syntax)
+  - Code bugs
+  - Missing dependencies
+- **Adaptive Test Repair**: Fixes tests based on execution results
+- **Concise Error Reporting**: Filters huge error logs to relevant information
+- **Test Strategy Selection**: Unit, Integration, E2E, Property-based
+- **Framework Detection**: Works with pytest and unittest
+
+**How it Works**:
+1. Receives test tasks from Request Planner (StepKind.TEST)
+2. Analyzes target code to understand testing needs
+3. Searches RAG for similar test patterns
+4. Generates tests using LLM with minimal mocks
+5. Executor runs tests in isolation
+6. Analyzes failures and provides filtered summaries
+7. Adapts failed tests if needed
+8. Reports results to Architect with recommendations
+
+**Event Flow**:
+- `test.generated`: Tests created
+- `test.executed`: Test run completed
+- `test.failed`: Test failed with analysis
+- `test.fixed`: Test repaired and passing
+- `test.coverage`: Coverage metrics
+- `test.report`: Summary sent to Architect
+
+**Integration Benefits**:
+- Clean separation of test tasks on message bus
+- Specialized system prompts for test generation
+- Intelligent error filtering reduces noise
+- Feedback loop enables test improvement
+
+**Connections**:
+- Receives tasks from Request Planner
+- Uses RAG to find test patterns
+- Reports to Architect for planning
+- Coordinates with Coding Agent for fixes
+
+### 6. RAG SERVICE (src/rag_service/)
 **Purpose**: Retrieval-Augmented Generation for codebase understanding
 
 **Key Files**:
@@ -216,6 +297,9 @@ The project implements a multi-agent AI system designed to automate software dev
 4. **Task Flow**:
    Plan → Task Graph → Scheduler → Agent → Execution → Results
 
+5. **Test Flow**:
+   Test Task → TestAgent (generates) → TestExecutor (runs) → Analysis → Architect (planning)
+
 ## KEY INTEGRATIONS
 
 1. **LLM Integration**:
@@ -300,16 +384,31 @@ The project implements a multi-agent AI system designed to automate software dev
    - Embedding generation requires significant compute
    - Multiple LLM calls can be expensive
 
+## RECENT IMPROVEMENTS
+
+1. **WebSocket Connection Fixed**: Frontend-backend WebSocket connection is now working
+2. **Architect-Analyzer Integration**: Analyzer's dynamic summaries and flowcharts now integrated into Architect's system prompt
+3. **Enhanced Architecture Understanding**: Architect now has built-in awareness of project structure through Analyzer
+4. **Dedicated Test Agent**: New intelligent test agent with:
+   - LLM-based test generation replacing hardcoded templates
+   - Separate TestExecutor for clean error filtering
+   - Adaptive test repair based on failure analysis
+   - Proper task routing via StepKind.TEST mapping
+5. **Task Type Mapping Fixed**: IntegratedRequestPlanner now correctly routes tasks based on StepKind
+
 ## RECOMMENDATIONS
 
-1. **Fix WebSocket Connection**: Implement WebSocket client in frontend for real-time updates
-2. **Unify API Servers**: Merge minimal and main webhook servers
-3. **Complete Missing Modules**: Implement missing integrated agents
-4. **Improve Test Coverage**: Fix failing E2E tests
-5. **Documentation**: Add setup guides and API documentation
-6. **Error Handling**: Improve error messages and recovery
-7. **Performance**: Add caching and optimize LLM usage
-8. **Security**: Implement proper authentication for production
+1. **Unify API Servers**: Merge minimal and main webhook servers
+2. **Complete Missing Modules**: Implement missing integrated agents (e.g., integrated_code_planner)
+3. **Improve Test Coverage**: Run and fix E2E tests after recent changes
+4. **Documentation**: Add setup guides and API documentation
+5. **Error Handling**: Improve error messages and recovery
+6. **Performance**: Add caching and optimize LLM usage
+7. **Security**: Implement proper authentication for production
+8. **Analyzer Enhancements**: 
+   - Add support for more languages/frameworks
+   - Implement incremental analysis for large codebases
+   - Add custom pattern detection rules
 
 ## CONCLUSION
 

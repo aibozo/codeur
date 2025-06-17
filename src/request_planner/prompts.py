@@ -188,6 +188,83 @@ FEW_SHOT_EXAMPLES = [
             "complexity_label": "complex",
             "estimated_tokens": 5000
         }
+    },
+    {
+        "request": "Add power and square root methods to the calculator class",
+        "plan": {
+            "steps": [
+                {
+                    "order": 1,
+                    "goal": "Add power method to Calculator class",
+                    "kind": "edit",
+                    "hints": [
+                        "Implement power(a, b) method that returns a^b",
+                        "Use the ** operator for exponentiation",
+                        "Handle edge cases like negative exponents",
+                        "Add method to calculator.py"
+                    ]
+                },
+                {
+                    "order": 2,
+                    "goal": "Add square root method to Calculator class",
+                    "kind": "edit",
+                    "hints": [
+                        "Implement square_root(a) method",
+                        "Handle negative numbers appropriately (raise ValueError)",
+                        "Use math.sqrt or a ** 0.5",
+                        "Add method to calculator.py"
+                    ]
+                },
+                {
+                    "order": 3,
+                    "goal": "Add comprehensive tests for power method",
+                    "kind": "test",
+                    "hints": [
+                        "Test positive integer exponents: power(2, 3) == 8",
+                        "Test zero exponent: power(5, 0) == 1",
+                        "Test negative exponents: power(2, -1) == 0.5",
+                        "Test fractional base and exponent",
+                        "Add tests to tests/test_calculator.py"
+                    ]
+                },
+                {
+                    "order": 4,
+                    "goal": "Add comprehensive tests for square root method",
+                    "kind": "test",
+                    "hints": [
+                        "Test perfect squares: square_root(4) == 2, square_root(9) == 3",
+                        "Test non-perfect squares: square_root(2) ≈ 1.414",
+                        "Test zero: square_root(0) == 0",
+                        "Test negative numbers raise ValueError",
+                        "Use pytest.raises for exception testing",
+                        "Add tests to tests/test_calculator.py"
+                    ]
+                },
+                {
+                    "order": 5,
+                    "goal": "Update calculator documentation",
+                    "kind": "edit",
+                    "hints": [
+                        "Add docstrings for new methods",
+                        "Include parameter descriptions",
+                        "Document return values and exceptions",
+                        "Add usage examples"
+                    ]
+                }
+            ],
+            "rationale": [
+                "Power and square root are fundamental mathematical operations",
+                "Separate test steps ensure comprehensive coverage for each method",
+                "Granular steps make it easier to validate each feature independently",
+                "Clear test hints guide proper test implementation with minimal mocks"
+            ],
+            "affected_paths": [
+                "calculator.py",
+                "tests/test_calculator.py"
+            ],
+            "complexity_label": "moderate",
+            "estimated_tokens": 2500
+        }
     }
 ]
 

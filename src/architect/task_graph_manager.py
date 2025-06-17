@@ -82,7 +82,8 @@ class TaskGraphManager:
                                          agent_type: str = "coding_agent",
                                          priority: TaskPriority = TaskPriority.MEDIUM,
                                          parent_id: Optional[str] = None,
-                                         dependencies: Optional[Set[str]] = None) -> EnhancedTaskNode:
+                                         dependencies: Optional[Set[str]] = None,
+                                         metadata: Optional[Dict[str, Any]] = None) -> EnhancedTaskNode:
         """
         Create a task from natural language description.
         
@@ -104,6 +105,10 @@ class TaskGraphManager:
             parent_id=parent_id,
             dependencies=dependencies or set()
         )
+        
+        # Add metadata if provided
+        if metadata:
+            task.metadata.update(metadata)
         
         # Add to graph
         self.graph.add_task(task)

@@ -260,11 +260,11 @@ async def startup_event():
     logger.info("Starting Codeur Dashboard API...")
     
     # Register demo agents
-    await agent_registry.register_agent("request_planner", "claude-3-sonnet", {"max_tokens": 4096})
-    await agent_registry.register_agent("code_writer", "claude-3-opus", {"max_tokens": 8192})
-    await agent_registry.register_agent("code_tester", "claude-3-haiku", {"max_tokens": 2048})
-    await agent_registry.register_agent("code_reviewer", "claude-3-sonnet", {"max_tokens": 4096})
-    await agent_registry.register_agent("doc_writer", "claude-3-haiku", {"max_tokens": 2048})
+    await agent_registry.register_agent("request_planner", "claude-3-sonnet", {})
+    await agent_registry.register_agent("code_writer", "claude-3-opus", {})
+    await agent_registry.register_agent("code_tester", "claude-3-haiku", {})
+    await agent_registry.register_agent("code_reviewer", "claude-3-sonnet", {})
+    await agent_registry.register_agent("doc_writer", "claude-3-haiku", {})
     
     # Start background tasks
     asyncio.create_task(agent_registry.start_health_monitor())

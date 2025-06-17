@@ -75,9 +75,13 @@ class TaskGraph:
     Represents the entire task dependency graph for a project.
     """
     project_id: str
+    project_name: str = ""
+    description: str = ""
     tasks: Dict[str, TaskNode] = field(default_factory=dict)
     root_tasks: Set[str] = field(default_factory=set)  # Tasks with no dependencies
     completed_tasks: Set[str] = field(default_factory=set)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
     
     def add_task(self, task: TaskNode) -> None:
         """Add a task to the graph."""
@@ -165,6 +169,10 @@ class TaskGraph:
         """Convert to dictionary for serialization."""
         return {
             'project_id': self.project_id,
+            'project_name': self.project_name,
+            'description': self.description,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
             'tasks': {tid: task.to_dict() for tid, task in self.tasks.items()},
             'root_tasks': list(self.root_tasks),
             'completed_tasks': list(self.completed_tasks),

@@ -69,6 +69,10 @@ class GoogleProviderV2(LLMProvider):
             
             # Convert messages to Gemini format
             prompt = self._format_messages(messages, config.response_format)
+            logger.debug(f"Using Gemini model: {model}")
+            logger.debug(f"Sending prompt to Gemini (first 500 chars): {prompt[:500]}")
+            logger.debug(f"Total prompt length: {len(prompt)} chars")
+            logger.debug(f"Generation config: temperature={generation_config.get('temperature')}, max_output_tokens={generation_config.get('max_output_tokens')}")
             
             # Generate response
             response = gemini_model.generate_content(
@@ -77,8 +81,46 @@ class GoogleProviderV2(LLMProvider):
                 safety_settings=safety_settings
             )
             
-            # Extract content
-            content = response.text if response.text else ""
+            # Debug response
+            logger.debug(f"Gemini response candidates: {len(response.candidates) if response.candidates else 0}")
+            if response.candidates:
+                candidate = response.candidates[0]
+                logger.debug(f"Finish reason: {candidate.finish_reason}")
+                logger.debug(f"Safety ratings: {candidate.safety_ratings}")
+                if candidate.content and candidate.content.parts:
+                    logger.debug(f"Parts count: {len(candidate.content.parts)}")
+                else:
+                    logger.debug("No content parts in response")
+            
+            # Extract content with better error handling
+            content = ""
+            try:
+                content = response.text
+            except ValueError as e:
+                # Log detailed information about the response
+                logger.warning(f"Failed to get text from response: {e}")
+                if response.candidates:
+                    candidate = response.candidates[0]
+                    if candidate.content and candidate.content.parts:
+                        # Try to extract text from parts manually
+                        text_parts = []
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'text'):
+                                text_parts.append(part.text)
+                        content = "".join(text_parts)
+                        logger.info(f"Manually extracted {len(content)} chars from parts")
+                    else:
+                        logger.warning("No content parts available")
+                        # Check if it's a refusal or empty response
+                        if candidate.finish_reason == 2:  # STOP
+                            logger.warning("Model returned STOP with no content - possibly prompt issue")
+                        elif candidate.finish_reason == 3:  # MAX_TOKENS
+                            logger.warning("Model hit max tokens limit")
+                        elif candidate.finish_reason == 4:  # SAFETY
+                            logger.warning("Content blocked by safety filters")
+                            logger.warning(f"Safety ratings: {candidate.safety_ratings}")
+                else:
+                    logger.error("No candidates in response")
             
             # Estimate token usage (Gemini doesn't always provide exact counts)
             prompt_tokens = self.count_tokens(prompt, model)
@@ -159,20 +201,29 @@ class GoogleProviderV2(LLMProvider):
     
     def _format_messages(self, messages: List[Message], response_format: ResponseFormat) -> str:
         """Format messages for Gemini."""
-        parts = []
+        # Gemini works best with simple concatenated prompts
+        # System messages can be prepended as context
         
+        prompt_parts = []
+        
+        # First, add any system messages as context
+        system_messages = [msg for msg in messages if msg.role == "system"]
+        if system_messages:
+            system_content = "\n".join(msg.content for msg in system_messages)
+            prompt_parts.append(system_content)
+        
+        # Then add the conversation
         for msg in messages:
-            if msg.role == "system":
-                parts.append(f"Instructions: {msg.content}")
-            elif msg.role == "user":
-                parts.append(f"User: {msg.content}")
+            if msg.role == "user":
+                prompt_parts.append(msg.content)
             elif msg.role == "assistant":
-                parts.append(f"Assistant: {msg.content}")
+                # For multi-turn conversations, include assistant responses
+                prompt_parts.append(msg.content)
         
-        prompt = "\n\n".join(parts)
+        prompt = "\n\n".join(prompt_parts)
         
         # Add JSON instruction if needed
         if response_format == ResponseFormat.JSON:
-            prompt += "\n\nPlease respond with valid JSON only."
+            prompt += "\n\nRespond with valid JSON format only."
         
         return prompt

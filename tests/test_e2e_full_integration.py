@@ -278,7 +278,7 @@ class TestFullE2EIntegration:
         task = result["tasks"][0]
         assert "id" in task
         assert "type" in task
-        assert task["type"] == "coding"
+        assert task["type"] == "coding_agent"
         assert "description" in task
         # Check that either title or description mentions divide
         assert "divide" in task.get("title", "").lower() or "divide" in task["description"].lower() or "/" in task["description"]

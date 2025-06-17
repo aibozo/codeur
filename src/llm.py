@@ -117,7 +117,7 @@ class LLMClient:
         """
         # Use model card defaults if not specified
         if max_tokens is None:
-            max_tokens = min(2000, self.model_card.max_output_tokens)
+            max_tokens = self.model_card.max_output_tokens
         else:
             max_tokens = min(max_tokens, self.model_card.max_output_tokens)
         

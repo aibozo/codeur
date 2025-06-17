@@ -6,6 +6,7 @@ infrastructure in a consistent way.
 """
 
 import logging
+import asyncio
 from typing import Dict, Any, Optional, List, Set
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -46,6 +47,7 @@ class AgentContext:
     agent_id: str = ""
     capabilities: Set[AgentCapability] = field(default_factory=set)
     simple_event_bridge: Optional[Any] = None
+    git_workflow: Optional[Any] = None
     
 
 class IntegratedAgentBase(ABC):
@@ -175,6 +177,53 @@ class IntegratedAgentBase(ABC):
         """
         self.logger.debug(f"Received request {request_type} from {sender_id}")
         
+    async def _handle_task_retry(self, event: Dict[str, Any]):
+        """Handle task retry events."""
+        data = event.get("data", {})
+        task_id = data.get("task_id", "")
+        agent_id = data.get("agent_id", "")
+        
+        # Only handle if this retry is for us
+        if agent_id != self.context.agent_id:
+            return
+            
+        self.logger.info(f"Handling retry for task {task_id}")
+        
+        # Get modified parameters
+        modified_params = data.get("modified_parameters", {})
+        attempt = data.get("attempt", 2)
+        
+        # Store retry context
+        if self._task_integration:
+            task = await self._task_integration.get_task(task_id)
+            if task and "metadata" in task:
+                task["metadata"]["retry_attempt"] = attempt
+                task["metadata"]["retry_parameters"] = modified_params
+                
+        # Re-trigger task assignment
+        await self.on_task_assigned(task_id)
+        
+    async def _handle_task_reroute(self, event: Dict[str, Any]):
+        """Handle task reroute events."""
+        data = event.get("data", {})
+        task_id = data.get("task_id", "")
+        to_agent = data.get("to_agent", "")
+        
+        # Only handle if this reroute is for us
+        if to_agent != self.context.agent_id:
+            return
+            
+        self.logger.info(f"Handling rerouted task {task_id}")
+        
+        # Update task assignment
+        if self._task_integration:
+            task = await self._task_integration.get_task(task_id)
+            if task:
+                task["agent_type"] = to_agent
+                
+        # Trigger task assignment
+        await self.on_task_assigned(task_id)
+        
     # Task Graph Helpers
     
     async def get_current_task(self) -> Optional[EnhancedTaskNode]:
@@ -214,6 +263,18 @@ class IntegratedAgentBase(ABC):
                 TaskStatus.COMPLETED,
                 {"result": result, "completed_by": self.context.agent_id}
             )
+        
+        # Emit task completed event for branch manager
+        if self._event_integration:
+            task = await self._task_integration.get_task(task_id) if self._task_integration else None
+            group_id = task.get("metadata", {}).get("group_id") if task else None
+            
+            await self._event_integration.publish_event("task.completed", {
+                "task_id": task_id,
+                "agent_id": self.context.agent_id,
+                "group_id": group_id,
+                "result": result
+            })
             
     async def fail_task(self, task_id: str, error: str):
         """Mark a task as failed."""
@@ -223,6 +284,18 @@ class IntegratedAgentBase(ABC):
                 TaskStatus.FAILED,
                 {"error": error, "failed_by": self.context.agent_id}
             )
+        
+        # Emit task failed event for branch manager
+        if self._event_integration:
+            task = await self._task_integration.get_task(task_id) if self._task_integration else None
+            group_id = task.get("metadata", {}).get("group_id") if task else None
+            
+            await self._event_integration.publish_event("task.failed", {
+                "task_id": task_id,
+                "agent_id": self.context.agent_id,
+                "group_id": group_id,
+                "error": error
+            })
             
     # RAG Helpers
     
@@ -258,10 +331,10 @@ class IntegratedAgentBase(ABC):
         }
         
         if task_id and self._task_integration:
-            task = self._task_integration.get_task(task_id)
+            task = await self._task_integration.get_task(task_id)
             if task:
-                metadata["task_title"] = task.title
-                metadata["task_community"] = task.community_id
+                metadata["task_title"] = task.get("title", "")
+                metadata["task_community"] = task.get("community_id", "")
                 
         await self._rag_integration.store_implementation(
             code,
@@ -324,6 +397,59 @@ class IntegratedAgentBase(ABC):
         import asyncio
         while response is None:
             await asyncio.sleep(0.1)
+            
+    # Git Workflow Helpers
+    
+    async def create_task_branch(self, task_id: str, description: str) -> Optional[str]:
+        """Create a task branch for this agent's work."""
+        if not hasattr(self.context, 'git_workflow') or not self.context.git_workflow:
+            self.logger.warning("Git workflow not available")
+            return None
+            
+        try:
+            branch_name = await self.context.git_workflow.create_task_branch(
+                task_id=task_id,
+                description=description,
+                agent_id=self.context.agent_id
+            )
+            self.logger.info(f"Created task branch: {branch_name}")
+            return branch_name
+        except Exception as e:
+            self.logger.error(f"Failed to create task branch: {e}")
+            return None
+            
+    async def commit_task_work(self, task_id: str, message: str, commit_type: str = "feature") -> Optional[str]:
+        """Commit work using the git workflow system."""
+        if not hasattr(self.context, 'git_workflow') or not self.context.git_workflow:
+            self.logger.warning("Git workflow not available")
+            return None
+            
+        try:
+            from .git_workflow import CommitType
+            
+            # Convert string to enum
+            ct = CommitType.FEATURE
+            try:
+                ct = CommitType(commit_type.lower())
+            except ValueError:
+                self.logger.warning(f"Unknown commit type {commit_type}, using FEATURE")
+                
+            commit_sha = await self.context.git_workflow.commit_atomic(
+                task_id=task_id,
+                agent_id=self.context.agent_id,
+                message=message,
+                commit_type=ct
+            )
+            
+            if commit_sha:
+                self.logger.info(f"Committed work: {commit_sha}")
+            else:
+                self.logger.info("No changes to commit")
+                
+            return commit_sha
+        except Exception as e:
+            self.logger.error(f"Failed to commit work: {e}")
+            return None
             
 
 class TaskGraphIntegrationImpl(TaskGraphIntegration):
@@ -418,14 +544,16 @@ class TaskGraphIntegrationImpl(TaskGraphIntegration):
                            title: str,
                            description: str,
                            agent_type: str,
-                           priority: TaskPriority = TaskPriority.MEDIUM) -> str:
+                           priority: TaskPriority = TaskPriority.MEDIUM,
+                           metadata: Optional[Dict[str, Any]] = None) -> str:
         """Create a subtask."""
         node = await self.task_manager.create_task_from_description(
             title=title,
             description=description,
             priority=priority,
             parent_id=parent_task_id,
-            agent_type=agent_type
+            agent_type=agent_type,
+            metadata=metadata
         )
         return node.id
         
@@ -473,11 +601,28 @@ class RAGIntegrationImpl(RAGIntegration):
                              limit: int = 5) -> List[Dict[str, Any]]:
         """Search knowledge base."""
         try:
-            results = self.rag_client.search(
-                query,
-                k=limit,
-                filters={"type": filter_type} if filter_type else None
-            )
+            # Check if search is async (RetryEnhancedRAGClient)
+            if asyncio.iscoroutinefunction(self.rag_client.search):
+                results = await self.rag_client.search(
+                    query,
+                    k=limit,
+                    filters={"type": filter_type} if filter_type else None
+                )
+            else:
+                results = self.rag_client.search(
+                    query,
+                    k=limit,
+                    filters={"type": filter_type} if filter_type else None
+                )
+            # If results is empty, return empty list
+            if not results:
+                return []
+            
+            # Check if results are already in dict format (from RetryEnhancedRAGClient)
+            if isinstance(results[0], dict):
+                return results
+            
+            # Otherwise, assume it's a list of objects with chunk and score attributes
             return [
                 {
                     "content": r.chunk.content,

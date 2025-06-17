@@ -59,7 +59,6 @@ class SmartContextGatherer:
         """
         context = CodeContext(
             task_goal=task.goal,
-            file_paths=list(task.paths),
             skeleton_patches=list(task.skeleton_patch)
         )
         

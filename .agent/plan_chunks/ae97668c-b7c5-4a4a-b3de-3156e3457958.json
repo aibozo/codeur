@@ -1,0 +1,68 @@
+{
+  "id": "ae97668c-b7c5-4a4a-b3de-3156e3457958",
+  "plan_id": "542efc16-1346-4f9d-98fa-5d5df104ecd0",
+  "phase_id": "b9c92896-aa92-40f9-9604-e6ebd86bfcd0",
+  "milestone_id": "3ac1062f-1846-48ca-970c-5e7681fee1f6",
+  "title": "Core Implementation",
+  "description": "Implement the main feature functionality",
+  "chunk_type": "feature",
+  "context": {
+    "technologies": [],
+    "dependencies": [],
+    "constraints": [],
+    "stakeholders": [],
+    "requirements": [],
+    "acceptance_criteria": [],
+    "affected_files": [],
+    "related_components": [],
+    "integration_points": [],
+    "performance_requirements": [],
+    "security_considerations": [],
+    "scalability_factors": [],
+    "metadata": {}
+  },
+  "rationale": "",
+  "tasks": [
+    {
+      "id": "e860244a-e901-4211-b2dd-1cfbb07cba4a",
+      "title": "Implement Core Logic",
+      "description": "Write the main feature implementation code",
+      "category": "implementation",
+      "context": {
+        "technologies": [],
+        "dependencies": [],
+        "constraints": [],
+        "stakeholders": [],
+        "requirements": [],
+        "acceptance_criteria": [],
+        "affected_files": [],
+        "related_components": [],
+        "integration_points": [],
+        "performance_requirements": [],
+        "security_considerations": [],
+        "scalability_factors": [],
+        "metadata": {}
+      },
+      "depends_on": [],
+      "blocks": [],
+      "agent_type": "coding_agent",
+      "estimated_effort": null,
+      "complexity": "medium",
+      "status": "draft",
+      "created_at": "2025-06-17T10:07:29.986799",
+      "updated_at": "2025-06-17T10:07:29.986799",
+      "related_issues": [],
+      "documentation_refs": [],
+      "code_refs": []
+    }
+  ],
+  "created_at": "2025-06-17T10:07:29.986794",
+  "updated_at": "2025-06-17T10:07:29.986799",
+  "plan_context": {
+    "title": "User Authentication System",
+    "description": "Add comprehensive user authentication to the web application",
+    "phase_title": "Implementation",
+    "milestone_title": "Feature Implemented"
+  },
+  "searchable_content": "Plan: User Authentication System\nPhase: Implementation\nMilestone: Feature Implemented\nChunk: Core Implementation\nType: feature\nDescription: Implement the main feature functionality\nRationale: \nTask: Implement Core Logic\nTask Description: Write the main feature implementation code\nAgent: coding_agent"
+}

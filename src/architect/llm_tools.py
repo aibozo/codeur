@@ -12,6 +12,7 @@ from enum import Enum
 from .task_graph_manager import TaskGraphManager
 from .task_creation_tools import TaskCreationTools
 from .enhanced_task_graph import TaskPriority
+from .codebase_tools import CodebaseTools
 
 
 class TaskFormat(str, Enum):
@@ -28,9 +29,11 @@ class ArchitectTools:
     Designed to minimize tool calls and use natural formats.
     """
     
-    def __init__(self, task_manager: TaskGraphManager):
+    def __init__(self, task_manager: TaskGraphManager, project_path: str = None, rag_client = None):
         self.task_manager = task_manager
         self.creation_tools = TaskCreationTools(task_manager)
+        # Initialize codebase tools if project path is provided
+        self.codebase_tools = CodebaseTools(project_path, rag_client) if project_path else None
         
     async def create_tasks(self, 
                           content: str,
@@ -295,6 +298,98 @@ class ArchitectTools:
                 "status": "error",
                 "message": f"Failed to update priority: {str(e)}"
             }
+    
+    # Codebase understanding tools
+    
+    async def search_codebase(self, query: str, file_pattern: Optional[str] = None, limit: int = 10) -> Dict[str, Any]:
+        """Search for code patterns, functions, classes, or concepts in the codebase."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.search_codebase(query, file_pattern, limit)
+    
+    async def explore_file(self, file_path: str, focus_area: Optional[str] = None) -> Dict[str, Any]:
+        """Read and analyze a specific file with optional focus on certain sections."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.explore_file(file_path, focus_area)
+    
+    async def find_symbol(self, symbol_name: str, symbol_type: Optional[str] = None) -> Dict[str, Any]:
+        """Find where a class, function, or variable is defined and used."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.find_symbol(symbol_name, symbol_type)
+    
+    async def trace_imports(self, file_path: str) -> Dict[str, Any]:
+        """Trace import dependencies for a file or module."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.trace_imports(file_path)
+    
+    async def analyze_component(self, component_path: str) -> Dict[str, Any]:
+        """Deep dive into a specific component or module structure."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.analyze_component(component_path)
+    
+    async def map_relationships(self, entry_point: str, depth: int = 2) -> Dict[str, Any]:
+        """Map relationships between components starting from an entry point."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.map_relationships(entry_point, depth)
+    
+    async def find_patterns(self, pattern_type: str = "all") -> Dict[str, Any]:
+        """Identify design patterns and architectural patterns in the codebase."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.find_patterns(pattern_type)
+    
+    async def assess_tech_stack(self) -> Dict[str, Any]:
+        """Identify technologies, frameworks, and libraries used in the project."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.assess_tech_stack()
+    
+    async def find_entry_points(self) -> Dict[str, Any]:
+        """Locate application entry points and main execution paths."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.find_entry_points()
+    
+    async def analyze_data_flow(self, entry_point: str) -> Dict[str, Any]:
+        """Trace data flow through the application from an entry point."""
+        if not self.codebase_tools:
+            return {
+                "status": "error",
+                "message": "Codebase tools not initialized. Project path required."
+            }
+        return await self.codebase_tools.analyze_data_flow(entry_point)
             
     def get_tool_definitions(self) -> list:
         """
@@ -303,7 +398,7 @@ class ArchitectTools:
         Returns a list of function definitions that can be used with
         OpenAI's function calling or similar LLM APIs.
         """
-        return [
+        definitions = [
             {
                 "name": "create_tasks",
                 "description": "Create a task structure using simple text formats",
@@ -381,3 +476,9 @@ class ArchitectTools:
                 }
             }
         ]
+        
+        # Add codebase tools if available
+        if self.codebase_tools:
+            definitions.extend(self.codebase_tools.get_tool_definitions())
+        
+        return definitions

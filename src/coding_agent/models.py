@@ -39,13 +39,10 @@ class CodeContext:
         """Add blob content."""
         self.blob_contents[blob_id] = content
     
-    def to_prompt_context(self, max_tokens: int = 3000) -> str:
+    def to_prompt_context(self) -> str:
         """
         Convert to a prompt-friendly context string.
         
-        Args:
-            max_tokens: Maximum tokens to include
-            
         Returns:
             Formatted context string
         """
