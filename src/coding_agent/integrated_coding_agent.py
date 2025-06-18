@@ -14,8 +14,10 @@ from ..core.integrated_agent_base import (
     IntegratedAgentBase, AgentContext, IntegrationLevel, AgentCapability
 )
 from ..architect.enhanced_task_graph import TaskPriority, TaskStatus
+from ..core.plan_storage import get_plan_storage
 from .agent import CodingAgent
 from ..core.logging import get_logger
+from ..core.performance_tracker import track_time, track_async_operation, log_performance_stats, track_api_call
 
 logger = get_logger(__name__)
 
@@ -52,6 +54,11 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
         self.current_task_id: Optional[str] = None
         self.implementation_history: List[Dict[str, Any]] = []
         
+        # Plan storage for reading implementation plans
+        # Use project-specific plan directory
+        plan_dir = context.project_path / '.agent' / 'plans'
+        self.plan_storage = get_plan_storage(plan_dir)
+        
     def get_integration_level(self) -> IntegrationLevel:
         """Coding agent needs full integration."""
         return IntegrationLevel.FULL
@@ -69,71 +76,33 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
         """Handle task assignment."""
         logger.info(f"Coding agent assigned task: {task_id}")
         
-        # Get task details
-        task = await self._task_integration.get_task(task_id)
-        if not task:
-            logger.error(f"Task {task_id} not found")
-            return
-            
         # Set as current task
         self.current_task_id = task_id
         
-        # Create a task branch using the git workflow
-        if hasattr(self.context, 'git_workflow') and self.context.git_workflow:
-            try:
-                branch_name = await self.context.git_workflow.create_task_branch(
-                    task_id=task_id,
-                    description=task.get("title", "Task implementation"),
-                    agent_id=self.context.agent_id
-                )
-                logger.info(f"Created task branch: {branch_name}")
-                
-                # Emit branch created event
-                await self._event_integration.publish_event("code.branch.created", {
-                    "task_id": task_id,
-                    "branch_name": branch_name,
-                    "group_id": task.get("metadata", {}).get("group_id")
-                })
-            except Exception as e:
-                logger.error(f"Failed to create task branch: {e}")
-                # Fallback to old method
-                branch_name = f"feature/{task_id[:8]}"
-                if self.git_ops.create_branch(branch_name):
-                    logger.info(f"Created fallback feature branch: {branch_name}")
-        else:
-            # Fallback to old method
-            branch_name = f"feature/{task_id[:8]}"  # Use first 8 chars of task ID
-            if self.git_ops.create_branch(branch_name):
-                logger.info(f"Created feature branch: {branch_name}")
-                
-                # Emit branch created event
-                await self._event_integration.publish_event("code.branch.created", {
-                    "task_id": task_id,
-                    "branch_name": branch_name,
-                    "group_id": task.get("metadata", {}).get("group_id")
-                })
-            else:
-                logger.warning(f"Failed to create branch for task {task_id}")
+        # Skip getting task details here - they'll be passed in execute_coding_task
+        # The task is managed by the scheduler, not in our local graph
         
-        # Update task status to in progress
-        await self.update_task_progress(task_id, 0.1, "Starting implementation")
+        # Log task assignment to session logger
+        if self.session_logger:
+            self.session_logger.log_task_created(
+                task_id=task_id,
+                task_type="coding",
+                description="Coding task",  # Will get real title in execute_coding_task
+                creator="task_scheduler",
+                reason="Assigned to coding agent",
+                files=[]  # Will get files from plan
+            )
         
-        # Execute the task
-        try:
-            result = await self.execute_coding_task(task)
+        # Branch creation will happen in execute_coding_task when we have task details
+        logger.info("Task assigned, waiting for execution")
             
-            # Mark task as completed
-            await self.complete_task(task_id, result)
-            
-        except Exception as e:
-            logger.error(f"Failed to execute task {task_id}: {e}")
-            await self.fail_task(task_id, str(e))
-            
+    @track_time("execute_coding_task")
     async def execute_coding_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a coding task with full integration.
         
         This method enhances the base execution with:
+        - Plan-based implementation
         - RAG context retrieval
         - Progress updates
         - Result storage in RAG
@@ -143,6 +112,29 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
         
         logger.info(f"Executing coding task: {title}")
         
+        # Check if this is a plan-based task
+        plan_id = None
+        file_path = None
+        action = "create"
+        
+        # First check the task's data field
+        if "data" in task and isinstance(task["data"], dict):
+            plan_id = task["data"].get("plan_id")
+            file_path = task["data"].get("file_path")
+            action = task["data"].get("action", "create")
+        
+        # Also check metadata
+        if not plan_id and "metadata" in task:
+            plan_id = task["metadata"].get("plan_id")
+            if not file_path:
+                file_path = task["metadata"].get("file_path")
+        
+        # Read the plan if available
+        plan_content = None
+        if plan_id:
+            logger.info(f"Reading plan {plan_id} for file {file_path}")
+            plan_content = self.plan_storage.read_plan(plan_id)
+            
         # Search RAG for similar implementations
         await self.update_task_progress(
             self.current_task_id, 
@@ -150,23 +142,33 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
             "Searching for similar implementations"
         )
         
-        similar_code = await self._find_similar_implementations(title, description)
+        async with track_async_operation("rag_search"):
+            similar_code = await self._find_similar_implementations(title, description)
         
-        # Prepare context with RAG results
+        # Log RAG query and results to session logger
+        if self.session_logger and similar_code:
+            self.session_logger.log_rag_query(
+                agent="integrated_coding_agent",
+                query=f"{title} {description}",
+                file_patterns=None
+            )
+            self.session_logger.log_rag_results(
+                agent="integrated_coding_agent",
+                query=f"{title} {description}",
+                result_count=len(similar_code),
+                relevant_files=[],
+                context_size=sum(len(item.get("code", "")) for item in similar_code)
+            )
+        
+        # Prepare context with plan and RAG results
         context = {
             "task": task,
+            "plan_content": plan_content,
+            "file_path": file_path,
+            "action": action,
             "similar_implementations": similar_code,
             "rag_context": task.get("rag_context", {})
         }
-        
-        # Plan the implementation
-        await self.update_task_progress(
-            self.current_task_id,
-            0.3,
-            "Planning implementation approach"
-        )
-        
-        plan = await self._plan_implementation(title, description, context)
         
         # Generate code
         await self.update_task_progress(
@@ -175,7 +177,9 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
             "Generating code"
         )
         
-        code_result = await self._generate_code(plan, context)
+        logger.info(f"Generating code with context: plan_id={plan_id}, file_path={file_path}, action={action}")
+        async with track_async_operation("code_generation"):
+            code_result = await self._generate_code_from_plan(context)
         
         # Test the implementation
         await self.update_task_progress(
@@ -184,7 +188,8 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
             "Testing implementation"
         )
         
-        test_result = await self._test_implementation(code_result)
+        async with track_async_operation("test_implementation"):
+            test_result = await self._test_implementation(code_result)
         
         # Emit validation event
         if test_result.get("success", False):
@@ -256,12 +261,15 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
                             "files_modified": len(code_result.get("files", [])),
                             "tests_passed": test_result.get("tests_passed", 0),
                             "coverage": test_result.get("coverage", 0),
-                            "implementation_approach": plan.get("approach", "standard")
+                            "implementation_approach": "plan_based" if plan_content else "standard"
                         }
                     )
                     
                     if commit_sha:
                         logger.info(f"Created atomic commit {commit_sha} for task: {title}")
+                        
+                        # Claim any reserved symbols after successful commit
+                        await self._claim_reserved_symbols(commit_sha, task)
                     else:
                         logger.warning("No changes to commit")
                         
@@ -279,6 +287,9 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
             1.0,
             "Implementation complete"
         )
+        
+        # Log performance stats for this task
+        log_performance_stats(f"Task {self.current_task_id[:8]} - ")
         
         # Format the result to match test expectations
         changes = []
@@ -305,7 +316,7 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
             "changes": changes,
             "code": code_result,
             "tests": test_result,
-            "plan": plan,
+            "plan": {"content": plan_content, "id": plan_id} if plan_content else None,
             "similar_found": len(similar_code),
             # Add context for dependent tasks
             "context": {
@@ -353,6 +364,173 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
                 
         return similar_code
         
+    async def _generate_code_from_plan(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate code based on plan instructions."""
+        task = context.get("task", {})
+        plan_content = context.get("plan_content", "")
+        file_path = context.get("file_path", "")
+        action = context.get("action", "create")
+        
+        if self.llm_client and file_path:
+            # Build prompt from plan
+            prompt = self._build_prompt_from_plan(
+                plan_content=plan_content,
+                file_path=file_path,
+                action=action,
+                task=task
+            )
+            
+            # Generate code using LLM
+            try:
+                import time
+                start_time = time.time()
+                response = self.llm_client.generate(
+                    prompt,
+                    system_prompt=self._get_simple_coding_prompt()
+                )
+                duration = time.time() - start_time
+                track_api_call("llm_generate", duration, prompt_length=len(prompt))
+                logger.info(f"LLM generation took {duration:.2f}s for prompt of {len(prompt)} chars")
+                
+                # Extract code from response
+                code = self._extract_code_from_response(response)
+                
+                # Apply the code to the file
+                result = await self._apply_code_to_file(code, file_path, action)
+                
+                # Log code generation
+                if self.session_logger:
+                    self.session_logger.log_file_operation(
+                        operation=action,
+                        file_path=file_path,
+                        content_size=len(code),
+                        success=True,
+                        agent="integrated_coding_agent"
+                    )
+                
+                return result
+                
+            except Exception as e:
+                logger.error(f"LLM code generation failed: {e}")
+                # Fall through to basic implementation
+        
+        # Fallback implementation
+        return self._generate_basic_implementation(task)
+    
+    def _build_prompt_from_plan(self, plan_content: str, file_path: str, action: str, task: Dict[str, Any]) -> str:
+        """Build prompt from plan content."""
+        # Extract relevant section from plan for this file
+        file_instructions = self._extract_file_instructions(plan_content, file_path)
+        
+        prompt = f"""Task: {task.get('title', 'Implementation task')}
+
+File: {file_path}
+Action: {action}
+
+Instructions from plan:
+{file_instructions}
+
+"""
+        
+        if action == "modify":
+            # Try to read existing file
+            full_path = self.context.project_path / file_path
+            if full_path.exists():
+                existing_content = full_path.read_text()
+                prompt += f"""Current file content:
+```python
+{existing_content}
+```
+
+Modify the file according to the instructions above. Return the complete modified file content.
+"""
+            else:
+                prompt += "Note: File doesn't exist yet, so create it according to the instructions.\n"
+        else:
+            prompt += "Create this file according to the instructions above. Return the complete file content.\n"
+            
+        return prompt
+    
+    def _extract_file_instructions(self, plan_content: str, file_path: str) -> str:
+        """Extract instructions for a specific file from the plan."""
+        if not plan_content:
+            return "No specific instructions found."
+            
+        # Look for sections mentioning this file
+        lines = plan_content.split('\n')
+        collecting = False
+        instructions = []
+        
+        for i, line in enumerate(lines):
+            # Check if this line mentions our file
+            if file_path in line:
+                collecting = True
+                # Include some context before
+                start = max(0, i - 2)
+                for j in range(start, i):
+                    instructions.append(lines[j])
+                    
+            if collecting:
+                instructions.append(line)
+                
+                # Stop collecting after we hit another file path or section
+                if i > 0 and line.startswith('#') and file_path not in line:
+                    break
+                if i > 0 and any(path in line for path in ['src/', 'tests/', '.py'] if path != file_path):
+                    break
+                    
+        if instructions:
+            return '\n'.join(instructions)
+        else:
+            # Fallback: return the whole plan
+            return plan_content
+    
+    def _get_simple_coding_prompt(self) -> str:
+        """Get simple system prompt for code generation."""
+        return """You are a coding agent. Generate clean, well-structured Python code based on the instructions provided.
+
+Key principles:
+- Follow the exact file path specified
+- Implement all requested functionality
+- Use clear variable names and add docstrings
+- Handle errors appropriately
+- Follow Python conventions (PEP 8)
+
+Return only the code content, no explanations."""
+    
+    def _extract_code_from_response(self, response: str) -> str:
+        """Extract code from LLM response."""
+        # Look for code blocks
+        import re
+        code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', response, re.DOTALL)
+        if code_match:
+            return code_match.group(1)
+        
+        # If no code blocks, assume the whole response is code
+        return response.strip()
+    
+    async def _apply_code_to_file(self, code: str, file_path: str, action: str) -> Dict[str, Any]:
+        """Apply generated code to the specified file."""
+        full_path = self.context.project_path / file_path
+        
+        # Create parent directories if needed
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write the code
+        full_path.write_text(code)
+        
+        logger.info(f"Successfully {action}d {file_path}")
+        
+        return {
+            "files": [{
+                "path": file_path,
+                "content": code,
+                "action": action
+            }],
+            "language": "python",
+            "dependencies": []
+        }
+    
     async def _plan_implementation(self, 
                                  title: str, 
                                  description: str,
@@ -386,93 +564,16 @@ class IntegratedCodingAgent(IntegratedAgentBase, CodingAgent):
     async def _generate_code(self, 
                            plan: Dict[str, Any],
                            context: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate code based on plan."""
-        task = context.get("task", {})
-        
-        # Check if we have an LLM client for proper generation
-        if self.llm_client:
-            # Build prompt for code generation
-            prompt = self._build_code_prompt(task, plan, context)
+        """Generate code based on plan - for backwards compatibility."""
+        # If we have plan-based context, use that
+        if context.get("plan_content") and context.get("file_path"):
+            return await self._generate_code_from_plan(context)
             
-            # Generate code using LLM
-            try:
-                response = self.llm_client.generate(
-                    prompt,
-                    system_prompt=self._get_coding_system_prompt()
-                )
-                
-                # Parse the generated code
-                code_result = self._parse_code_response(response, task)
-                
-                # Apply the generated code to files
-                return await self._apply_code_changes(code_result, task)
-                
-            except Exception as e:
-                logger.error(f"LLM code generation failed: {e}")
-                # Fall through to basic implementation
-        
-        # Basic implementation for when LLM is not available
+        # Otherwise, generate basic implementation
+        task = context.get("task", {})
         return self._generate_basic_implementation(task)
             
-    def _build_code_prompt(self, 
-                         task: Dict[str, Any],
-                         plan: Dict[str, Any], 
-                         context: Dict[str, Any]) -> str:
-        """Build prompt for code generation."""
-        # Determine target file based on task
-        target_file = None
-        description = task.get('description', '').lower()
-        title = task.get('title', '').lower()
-        
-        if 'calculator' in description or 'calculator' in title:
-            if 'test' not in description and 'test' not in title:
-                target_file = "calculator/calculator.py"
-        elif 'test' in description or 'test' in title:
-            target_file = "tests/test_calculator.py"
-            
-        prompt = f"""Task: {task.get('title')}
-Description: {task.get('description')}
-
-IMPORTANT: You must modify the existing file at: {target_file if target_file else 'determine from context'}
-
-Current file content to modify:
-"""
-        
-        # Try to read the current file content
-        if target_file:
-            file_path = self.context.project_path / target_file
-            if file_path.exists():
-                prompt += f"\n```python\n{file_path.read_text()}\n```\n"
-            else:
-                prompt += f"\n[File {target_file} does not exist yet]\n"
-                
-        prompt += f"""
-Instructions:
-1. Add the requested functionality to the EXISTING code above
-2. Maintain the existing code structure and style
-3. Add new methods to the existing Calculator class
-4. Do NOT create a new file or class
-5. Return ONLY the complete modified file content
-
-Plan:
-{plan}
-
-Context:
-- Project path: {self.context.project_path}
-- Language: Python
-- Target file: {target_file if target_file else 'to be determined'}
-"""
-        
-        # Add similar code examples
-        similar = context.get("similar_implementations", [])
-        if similar:
-            prompt += "\nSimilar implementations:\n"
-            for i, impl in enumerate(similar[:2]):
-                prompt += f"\nExample {i+1}:\n```\n{impl['code']}\n```\n"
-                
-        prompt += "\nGenerate implementation code following the plan."
-        
-        return prompt
+    # Method removed - using _build_prompt_from_plan instead
         
     def _get_coding_system_prompt(self) -> str:
         """Get system prompt for code generation."""
@@ -544,55 +645,7 @@ If asked to add a power method to Calculator, you should:
             "task": task
         }
         
-    async def _apply_code_changes(self, code_result: Dict[str, Any], task: Dict[str, Any]) -> Dict[str, Any]:
-        """Apply generated code changes to files."""
-        files_modified = []
-        
-        # Determine target file based on task
-        target_file = None
-        description = task.get('description', '').lower()
-        title = task.get('title', '').lower()
-        
-        if 'calculator' in description or 'calculator' in title:
-            if 'test' not in description and 'test' not in title:
-                target_file = "calculator/calculator.py"
-        elif 'test' in description or 'test' in title:
-            target_file = "tests/test_calculator.py"
-        
-        # Check task context for explicit target files
-        if task.get("context", {}).get("target_files"):
-            target_file = task["context"]["target_files"][0]
-        
-        # If we have a target file and code blocks, apply the changes
-        if target_file and code_result.get("blocks"):
-            # Get the first code block (should be the complete modified file)
-            new_content = code_result["blocks"][0]["code"]
-            
-            # Write to the target file
-            file_path = self.context.project_path / target_file
-            
-            # Create parent directories if needed
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write the new content
-            file_path.write_text(new_content)
-            
-            files_modified.append({
-                "path": target_file,
-                "content": new_content
-            })
-            
-            logger.info(f"Successfully modified {target_file}")
-            
-        else:
-            # Fallback to creating new files
-            return self._fallback_apply_changes(code_result, task)
-            
-        return {
-            "files": files_modified,
-            "language": "python",
-            "dependencies": []
-        }
+    # Method removed - using _apply_code_to_file instead
         
     def _fallback_apply_changes(self, code_result: Dict[str, Any], task: Dict[str, Any]) -> Dict[str, Any]:
         """Fallback implementation when patching fails."""
@@ -618,9 +671,17 @@ If asked to add a power method to Calculator, you should:
         
     def _generate_basic_implementation(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Generate basic implementation when LLM is not available."""
+        # Try to get file path from task data
+        file_path = "implementation.py"  # default
+        
+        if "data" in task and isinstance(task["data"], dict):
+            file_path = task["data"].get("file_path", file_path)
+        elif "metadata" in task and isinstance(task["metadata"], dict):
+            file_path = task["metadata"].get("file_path", file_path)
+            
         return {
             "files": [{
-                "path": "implementation.py",
+                "path": file_path,
                 "content": f"# Implementation for: {task.get('title', 'Task')}\n# TODO: Implement\npass"
             }],
             "language": "python",
@@ -739,3 +800,96 @@ If asked to add a power method to Calculator, you should:
                     logger.warning("Failed to create fallback commit")
             except Exception as e:
                 logger.error(f"Failed to create fallback commit: {e}")
+    
+    async def _claim_reserved_symbols(self, commit_sha: str, task: Dict[str, Any]):
+        """Claim any reserved symbols after successful commit."""
+        try:
+            # Get symbol leases from task metadata
+            metadata = task.get('metadata', {})
+            symbol_leases = metadata.get('symbol_leases', [])
+            
+            if not symbol_leases:
+                logger.debug("No symbol leases to claim")
+                return
+            
+            # Get embedded SRM if available
+            from ..symbol_registry.embedded import get_embedded_srm
+            srm = get_embedded_srm(self.context.project_path)
+            
+            # Claim each symbol lease
+            claimed = 0
+            for lease_info in symbol_leases:
+                lease_id = lease_info.get('lease_id')
+                if lease_id:
+                    success = await srm.claim_symbol(lease_id, commit_sha)
+                    if success:
+                        claimed += 1
+                        logger.info(f"Claimed symbol: {lease_info.get('fq_name')}")
+                    else:
+                        logger.warning(f"Failed to claim symbol lease {lease_id}")
+            
+            if claimed > 0:
+                logger.info(f"Successfully claimed {claimed} symbols with commit {commit_sha}")
+                
+        except Exception as e:
+            logger.error(f"Error claiming symbols: {e}")
+            # Don't fail the task if symbol claiming fails
+    
+    async def complete_task(self, task_id: str, result: Dict[str, Any]):
+        """Override to add session logging when task completes."""
+        start_time = getattr(self, '_task_start_time', None)
+        duration = None
+        if start_time:
+            import time
+            duration = time.time() - start_time
+        
+        # Log task completion to session logger
+        if self.session_logger:
+            self.session_logger.log_task_completed(
+                task_id=task_id,
+                agent="integrated_coding_agent",
+                duration_seconds=duration or 0,
+                success=True,
+                files_modified=len(result.get("files", [])),
+                tests_passed=result.get("tests_passed", 0)
+            )
+        
+        # Call parent implementation
+        await super().complete_task(task_id, result)
+    
+    async def fail_task(self, task_id: str, error: str):
+        """Override to add session logging when task fails."""
+        start_time = getattr(self, '_task_start_time', None)
+        duration = None
+        if start_time:
+            import time
+            duration = time.time() - start_time
+        
+        # Log task failure to session logger
+        if self.session_logger:
+            self.session_logger.log_task_completed(
+                task_id=task_id,
+                agent="integrated_coding_agent",
+                duration_seconds=duration or 0,
+                success=False,
+                error=error
+            )
+        
+        # Call parent implementation
+        await super().fail_task(task_id, error)
+    
+    async def update_task_progress(self, task_id: str, progress: float, message: str = ""):
+        """Override to track task start time."""
+        # Track start time on first progress update
+        if progress <= 0.1 and not hasattr(self, '_task_start_time'):
+            import time
+            self._task_start_time = time.time()
+        
+        # Only call parent if we have proper task integration
+        if self._task_integration and hasattr(self._task_integration, 'task_manager') and self._task_integration.task_manager:
+            try:
+                await super().update_task_progress(task_id, progress, message)
+            except Exception as e:
+                logger.warning(f"Failed to update task progress: {e}")
+        else:
+            logger.debug(f"Task progress: {progress:.1%} - {message}")

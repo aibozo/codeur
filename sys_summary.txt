@@ -21,74 +21,93 @@ The project implements a multi-agent AI system designed to automate software dev
 
 **Key Files**:
 - `planner.py`: Core planning logic with LLM and heuristic strategies
-- `integrated_planner.py`: Task graph integration
-- `enhanced_integrated_planner.py`: Advanced features with agent coordination
+- `integrated_request_planner.py`: Full integration with task graph and agent mapping
+- `models.py`: StepKind enum for task type mapping
 - `context.py`: Codebase context retrieval
 - `llm.py`: LLM integration with structured outputs
 
 **How it Works**:
 1. Receives natural language change requests
-2. Parses intent and searches relevant code context
-3. Creates structured implementation plans using LLM
-4. Converts plans to task graphs for execution
-5. Assigns tasks to specialized agents
-6. Monitors execution progress
+2. Creates Plan object with steps using base planner
+3. Maps StepKind to agent types (TEST→test_agent, EDIT/ADD→coding_agent)
+4. Creates hierarchical task graph with dependencies
+5. Handles parallel vs serial task execution modes
+6. Publishes task.assigned events for scheduler
+
+**Task Type Mapping**:
+- StepKind.TEST → "test_agent"
+- StepKind.EDIT/ADD/REFACTOR → "coding_agent"
+- StepKind.REVIEW → "reviewer"
+- StepKind.REMOVE → "coding_agent"
 
 **Connections**:
 - Uses RAG service for context gathering
-- Creates tasks in Task Graph
-- Publishes events to Message Bus
-- Delegates to Coding Agent, Test Agent, etc.
+- Creates tasks in Enhanced Task Graph
+- Publishes events to Event Bridge
+- Integrates with Task Scheduler for execution
 
 ### 2. ARCHITECT AGENT (src/architect/)
-**Purpose**: High-level system design and conversation management
+**Purpose**: High-level system design and plan creation
 
 **Key Files**:
-- `architect.py`: Base architect functionality
-- `context_aware_architect.py`: Advanced conversation management
-- `context_graph.py`: Graph-based conversation history
+- `architect.py`: Main architect with plan creation and event publishing
+- `plan_format.py`: YAML plan formatting and parsing
 - `enhanced_task_graph.py`: Hierarchical task organization
-- `llm_tools.py`: Function calling interface
+- `task_graph_manager.py`: Task context and community management
+- `llm_tools.py`: Function calling interface for task operations
 
 **How it Works**:
-1. Manages long-running design conversations
-2. Uses context graph to compress conversation history
-3. Creates hierarchical task structures (epics/tasks/subtasks)
-4. Detects task communities and themes
-5. Integrates RAG for code-aware responses
-6. Provides abstracted views for UI
+1. Receives project requirements from user/webhook
+2. Uses LLM to create implementation plan in YAML format
+3. Publishes PlanCreatedMessage to event bridge
+4. Plan includes task breakdown with priorities and dependencies
+5. Integrates with Analyzer for architecture understanding
+6. Reserves symbols via Symbol Registry if available
+
+**Plan Creation Flow**:
+1. `create_implementation_plan()` generates YAML plan
+2. `_publish_plan_event()` sends PlanCreatedMessage
+3. Event contains plan_id, project_id, plan_content, task_count
+4. Task Scheduler listens for plan.created events
 
 **Connections**:
 - Uses RAG for codebase understanding
-- Creates tasks in Enhanced Task Graph
-- Integrates with Task Scheduler
-- Provides data for frontend visualization
+- Publishes events through Event Bridge
+- Integrates with Symbol Registry for symbol reservation
+- Enhanced by Analyzer's architecture summaries
 
 ### 3. CODING AGENT (src/coding_agent/)
 **Purpose**: Converts coding tasks into actual code changes and git commits
 
 **Key Files**:
 - `agent.py`: Main coding agent orchestrator
+- `integrated_coding_agent.py`: Full integration with IntegratedAgentBase
 - `context_gatherer.py`: Smart context retrieval
 - `patch_generator.py`: LLM-based diff generation
 - `file_rewriter.py`: Alternative full-file rewriting
 - `validator.py`: Code validation pipeline
-- `integrated_coding_agent.py`: Full system integration
 
 **How it Works**:
-1. Receives CodingTask with goals and context
-2. Creates feature branch for changes
-3. Gathers relevant context using RAG
-4. Generates patches or rewrites files
-5. Validates syntax, linting, types, tests
-6. Commits changes with descriptive messages
-7. Reports results back through events
+1. Inherits from IntegratedAgentBase for standard integration
+2. Implements `on_task_assigned()` to handle task events
+3. Reads implementation plans from plan storage
+4. Searches RAG for similar implementations
+5. Generates code changes based on task description
+6. Updates task progress via event system
+7. Stores successful implementations in RAG
+
+**Integration Features**:
+- Uses AgentContext for shared infrastructure
+- Task progress updates via `update_task_progress()`
+- Task completion via `complete_task()` or `fail_task()`
+- Git workflow integration for branching/commits
+- Session logging for audit trail
 
 **Connections**:
-- Uses RAG for finding similar code
-- Integrates with Git operations
-- Reports progress via Event Bridge
-- Works with Change Tracker
+- Extends IntegratedAgentBase for standard patterns
+- Uses plan storage to read implementation details
+- Reports progress via Event Integration
+- Integrates with Git Workflow for atomic commits
 
 ### 4. ANALYZER AGENT (src/analyzer/)
 **Purpose**: Automatic architecture analysis and documentation with dynamic summaries and flowcharts
@@ -217,21 +236,27 @@ The Test Agent uses a two-component design:
 
 ### 6. CORE INFRASTRUCTURE (src/core/)
 
+#### Integration Framework:
+- `integrated_agent_base.py`: Base class providing standard integration patterns
+- `agent_integration_interfaces.py`: Integration interfaces (TaskGraph, RAG, Event)
+- `agent_context.py`: Shared context for all integrated agents
+
 #### Event System:
-- `message_bus.py`: Internal pub/sub system
-- `event_bridge.py`: Typed message to WebSocket bridge
-- `simple_event_bridge.py`: String-based event wrapper
-- `realtime.py`: WebSocket server implementation
+- `message_bus.py`: Internal pub/sub system for typed messages
+- `event_bridge.py`: Bridges internal events to WebSocket streaming
+- `simple_event_bridge.py`: String-based event wrapper for easy integration
+- `realtime.py`: WebSocket server for frontend communication
 
 #### Agent Coordination:
-- `agent_registry.py`: Central agent state management
-- `agent_graph.py`: Static agent relationship graph
-- `integrated_agent_base.py`: Base class for agent integration
-- `task_scheduler.py`: Intelligent task assignment
+- `agent_registry.py`: Tracks agent states, capabilities, and health
+- `task_scheduler.py`: Assigns tasks based on dependencies and agent availability
+- `git_workflow.py`: Manages git branches and commits per task
+- `plan_storage.py`: Stores and retrieves implementation plans
 
 #### Monitoring:
+- `session_logger.py`: Comprehensive logging of agent activities
+- `flow_tracker.py`: Tracks message flows between agents
 - `metrics_collector.py`: System resource monitoring
-- `flow_tracker.py`: Agent communication tracking
 - `change_tracker.py`: File change monitoring
 
 ### 7. TASK GRAPH SYSTEM (src/architect/)
@@ -285,38 +310,75 @@ The Test Agent uses a two-component design:
 
 ## DATA FLOW
 
-1. **User Request Flow**:
-   User → Frontend/Webhook → Request Planner → Task Graph → Specialized Agents
+1. **Full Agent-to-Agent Pipeline**:
+   User Request → Webhook/Frontend → Architect (creates plan) → PlanCreatedMessage → 
+   Event Bridge → Task Scheduler → Request Planner (converts to tasks) → 
+   Enhanced Task Graph → Agent Assignment → Task Execution → Results
 
-2. **Context Flow**:
-   Codebase → RAG Service → Agents → LLM → Code Changes
+2. **Plan-Based Execution Flow**:
+   - Architect creates YAML plan with task breakdown
+   - Publishes plan.created event with plan content
+   - Task Scheduler receives event and triggers plan processing
+   - Request Planner maps plan steps to agent types
+   - Creates task graph with proper dependencies
+   - Scheduler assigns tasks based on readiness
 
-3. **Event Flow**:
-   Agents → Message Bus → Event Bridge → WebSocket → Frontend
+3. **Agent Integration Flow**:
+   - All agents extend IntegratedAgentBase
+   - Receive AgentContext with shared infrastructure
+   - Handle task.assigned events via on_task_assigned()
+   - Update progress via task integration
+   - Publish completion via event integration
 
-4. **Task Flow**:
-   Plan → Task Graph → Scheduler → Agent → Execution → Results
+4. **Event Communication**:
+   - Typed messages via Message Bus (internal)
+   - Event Bridge converts to WebSocket events
+   - Simple Event Bridge provides string-based interface
+   - Agents subscribe/publish through event integration
 
-5. **Test Flow**:
-   Test Task → TestAgent (generates) → TestExecutor (runs) → Analysis → Architect (planning)
+5. **Task State Management**:
+   - Tasks tracked in Enhanced Task Graph
+   - Dependencies managed automatically
+   - Status updates propagated via events
+   - Progress tracked in Agent Registry
 
 ## KEY INTEGRATIONS
 
-1. **LLM Integration**:
-   - Uses OpenAI API (configurable models)
-   - Structured outputs via function calling
-   - Context-aware prompting
+1. **Agent Integration Pattern**:
+   - Base class: IntegratedAgentBase
+   - Context: AgentContext with project path, event bridge, task manager, RAG client
+   - Three integration levels: FULL, TASK_ONLY, RAG_ONLY
+   - Standard methods: on_task_assigned(), update_task_progress(), complete_task()
 
-2. **Git Integration**:
-   - Branch creation and management
-   - Patch application
-   - Commit creation
-   - Safe operations with validation
+2. **Task-Agent Mapping**:
+   ```python
+   StepKind.TEST → "test_agent"
+   StepKind.EDIT/ADD/REFACTOR → "coding_agent"  
+   StepKind.REVIEW → "reviewer"
+   StepKind.REMOVE → "coding_agent"
+   ```
 
-3. **File System Integration**:
-   - Change monitoring
-   - Safe file operations
-   - Project isolation
+3. **Event Message Types**:
+   - PlanCreatedMessage: Plan content and metadata
+   - TaskProgressMessage: Task updates
+   - AgentStatusMessage: Agent state changes
+   - CodeOperationMessage: Code changes
+
+4. **Integration Adapters**:
+   - TaskGraphIntegrationImpl: Task CRUD operations
+   - RAGIntegrationImpl: Knowledge search and storage
+   - EventIntegrationImpl: Event pub/sub
+
+5. **Git Workflow Integration**:
+   - Per-task branches
+   - Atomic commits
+   - Branch management by task group
+
+6. **Session Logging**:
+   - Comprehensive activity tracking
+   - Task creation/completion
+   - RAG queries
+   - Code operations
 
 ## CONFIGURATION
 
